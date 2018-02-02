@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<pylonParameter>
+  <sync>1</sync>
+  <autoGain>0</autoGain>
+  <gainValue>1</gainValue>
+  <enableGammaCorr>1</enableGammaCorr>
+  <imageWidth>1280</imageWidth>
+  <imageHeight>960</imageHeight>
+  <centerX>1</centerX>
+  <offsetX>0</offsetX>
+  <centerY>1</centerY>
+  <offsetY>0</offsetY>
+  <autoExposure>1</autoExposure>
+  <exposureTime>8000.</exposureTime>
+  <enableAcquisitionFrameRate>0</enableAcquisitionFrameRate>
+  <acquisitionFrameRate>50.</acquisitionFrameRate>
+  <autoWhiteBalance>1</autoWhiteBalance></pylonParameter>
+</opencv_storage>
