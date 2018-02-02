@@ -2,7 +2,7 @@
 
 #include "core.h"
 
-#include "result.h"
+#include "structures.h"
 
 #include "opencv2\core.hpp"
 #include "opencv2\imgproc.hpp"
@@ -35,7 +35,7 @@ namespace mc
 			NormalEstimation(const cv::Size& imageSize, int minDifference, float expScale, float filterConst) : imageSize(imageSize),
 				minDifference(minDifference), expScale(expScale), filterLeft(0.f, filterConst), filterRight(0.f, filterConst) {}
 
-			bool apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::result::NormalResult& normalResult,
+			bool apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::structures::NormalResult& normalResult,
 				const cv::Mat& mask = cv::Mat());
 
 			bool draw(cv::Mat& image, const cv::Scalar& color = { 0, 255, 0 }, const cv::Mat& mask = cv::Mat());

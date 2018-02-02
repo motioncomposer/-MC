@@ -6,7 +6,7 @@ namespace mc
 	namespace normal
 	{
 
-		bool NormalEstimation::apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::result::NormalResult& normalResult,
+		bool NormalEstimation::apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::structures::NormalResult& normalResult,
 			const cv::Mat& mask)
 		{
 			if (last.empty() || last.type() != CV_8UC1 || cur.empty() || cur.type() != CV_8UC1
@@ -18,12 +18,12 @@ namespace mc
 			cv::threshold(diff, thresh, minDifference, 255, cv::ThresholdTypes::THRESH_BINARY);
 
 			if (mask.empty() || mask.type() != CV_8UC1 || mask.size() != imageSize)
-				_getNormalWithoutMask(center, normalResult.normalBodyLeft, normalResult.normalBodyRight);
+				_getNormalWithoutMask(center, normalResult.bodyLeft, normalResult.bodyRight);
 			else
-				_getNormalWithMask(center, normalResult.normalBodyLeft, normalResult.normalBodyRight, mask);
+				_getNormalWithMask(center, normalResult.bodyLeft, normalResult.bodyRight, mask);
 
 			// in this function we can put the std::exp scaling
-			_filterNormal(normalResult.normalBodyLeft, normalResult.normalBodyRight);
+			_filterNormal(normalResult.bodyLeft, normalResult.bodyRight);
 
 			return true;
 		}

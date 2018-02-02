@@ -7,19 +7,19 @@ namespace mc
 	{
 
 		// the FlowResult comes into a separate header file
-		void GestureDetection::apply(const mc::result::FlowResult& flowResult, mc::result::GestureResult& gestureResult)
+		void GestureDetection::apply(const mc::structures::FlowResult& flowResult, mc::structures::GestureResult& gestureResult)
 		{
-			gestureResult.gestureHitDownLeft = isHitDownLeft(flowResult);
-			gestureResult.gestureHitDownRight = isHitDownRight(flowResult);
+			gestureResult.hitDownLeft = isHitDownLeft(flowResult);
+			gestureResult.hitDownRight = isHitDownRight(flowResult);
 		}
 
 		// this will become internal functions afterwards
-		bool GestureDetection::isHitDownLeft(const mc::result::FlowResult &flowResult)
+		bool GestureDetection::isHitDownLeft(const mc::structures::FlowResult &flowResult)
 		{
 
 			if (isReadyLeft)
 			{
-				if (flowResult.flowDownwardsLeft > minFlow)
+				if (flowResult.downwardsLeft > minFlow)
 					++curDownLeft;
 
 				if (curDownLeft > minDown)
@@ -31,7 +31,7 @@ namespace mc
 			}
 			else
 			{
-				if (flowResult.flowUpwardsLeft > minFlow)
+				if (flowResult.upwardsLeft > minFlow)
 					++curUpLeft;
 
 				if (curUpLeft > minUp)
@@ -44,12 +44,12 @@ namespace mc
 			return false;
 		}
 
-		bool GestureDetection::isHitDownRight(const mc::result::FlowResult &flowResult)
+		bool GestureDetection::isHitDownRight(const mc::structures::FlowResult &flowResult)
 		{
 
 			if (isReadyRight)
 			{
-				if (flowResult.flowDownwardsRight > minFlow)
+				if (flowResult.downwardsRight > minFlow)
 					++curDownRight;
 
 				if (curDownRight > minDown)
@@ -61,7 +61,7 @@ namespace mc
 			}
 			else
 			{
-				if (flowResult.flowUpwardsRight > minFlow)
+				if (flowResult.upwardsRight > minFlow)
 					++curUpRight;
 
 				if (curUpRight > minUp)

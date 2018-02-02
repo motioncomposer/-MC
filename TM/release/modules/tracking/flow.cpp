@@ -5,7 +5,7 @@ namespace mc
 {
 	namespace flow
 	{
-		bool FlowEstimation::apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::result::FlowResult& flowResult,
+		bool FlowEstimation::apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::structures::FlowResult& flowResult,
 			const cv::Mat& mask)
 		{
 			if (last.empty() || last.type() != CV_8UC1 || cur.empty() || cur.type() != CV_8UC1
@@ -103,10 +103,10 @@ namespace mc
 		}
 
 
-		void FlowEstimation::_getFlowWithMask(const cv::Point& center, mc::result::FlowResult& flowResult, const cv::Mat& mask)
+		void FlowEstimation::_getFlowWithMask(const cv::Point& center, mc::structures::FlowResult& flowResult, const cv::Mat& mask)
 		{
 			// calculating the activity values;
-			flowResult.reset();
+			flowResult = mc::structures::FlowResult();
 
 			counterLeft = 0;
 			counterRight = 0;
@@ -118,28 +118,28 @@ namespace mc
 					if (gridPoints[c].x < center.x)
 					{
 						if (dmy.x < 0)
-							flowResult.flowLeftwardsLeft -= dmy.x;
+							flowResult.leftwardsLeft -= dmy.x;
 						else
-							flowResult.flowRightwardsLeft += dmy.x;
+							flowResult.rightwardsLeft += dmy.x;
 
 						if (dmy.y < 0)
-							flowResult.flowUpwardsLeft -= dmy.y;
+							flowResult.upwardsLeft -= dmy.y;
 						else
-							flowResult.flowDownwardsLeft += dmy.y;
+							flowResult.downwardsLeft += dmy.y;
 
 						++counterLeft;
 					}
 					else
 					{
 						if (dmy.x < 0)
-							flowResult.flowLeftwardsRight -= dmy.x;
+							flowResult.leftwardsRight -= dmy.x;
 						else
-							flowResult.flowRightwardsRight += dmy.x;
+							flowResult.rightwardsRight += dmy.x;
 
 						if (dmy.y < 0)
-							flowResult.flowUpwardsRight -= dmy.y;
+							flowResult.upwardsRight -= dmy.y;
 						else
-							flowResult.flowDownwardsRight += dmy.y;
+							flowResult.downwardsRight += dmy.y;
 
 						++counterRight;
 					}
@@ -148,26 +148,26 @@ namespace mc
 
 			if (counterLeft != 0)
 			{
-				flowResult.flowLeftwardsLeft /= counterLeft;
-				flowResult.flowRightwardsLeft /= counterLeft;
-				flowResult.flowUpwardsLeft /= counterLeft;
-				flowResult.flowDownwardsLeft /= counterLeft;
+				flowResult.leftwardsLeft /= counterLeft;
+				flowResult.rightwardsLeft /= counterLeft;
+				flowResult.upwardsLeft /= counterLeft;
+				flowResult.downwardsLeft /= counterLeft;
 			}
 
 			if (counterRight != 0)
 			{
-				flowResult.flowLeftwardsRight /= counterRight;
-				flowResult.flowRightwardsRight /= counterRight;
-				flowResult.flowUpwardsRight /= counterRight;
-				flowResult.flowDownwardsRight /= counterRight;
+				flowResult.leftwardsRight /= counterRight;
+				flowResult.rightwardsRight /= counterRight;
+				flowResult.upwardsRight /= counterRight;
+				flowResult.downwardsRight /= counterRight;
 			}
 		}
 
 
-		void FlowEstimation::_getFlowWithoutMask(const cv::Point& center, mc::result::FlowResult& flowResult)
+		void FlowEstimation::_getFlowWithoutMask(const cv::Point& center, mc::structures::FlowResult& flowResult)
 		{
 			// calculating the activity values;
-			flowResult.reset();
+			flowResult = mc::structures::FlowResult();
 
 			counterLeft = 0;
 			counterRight = 0;
@@ -179,28 +179,28 @@ namespace mc
 					if (gridPoints[c].x < center.x)
 					{
 						if (dmy.x < 0)
-							flowResult.flowLeftwardsLeft -= dmy.x;
+							flowResult.leftwardsLeft -= dmy.x;
 						else
-							flowResult.flowRightwardsLeft += dmy.x;
+							flowResult.rightwardsLeft += dmy.x;
 
 						if (dmy.y < 0)
-							flowResult.flowUpwardsLeft -= dmy.y;
+							flowResult.upwardsLeft -= dmy.y;
 						else
-							flowResult.flowDownwardsLeft += dmy.y;
+							flowResult.downwardsLeft += dmy.y;
 
 						++counterLeft;
 					}
 					else
 					{
 						if (dmy.x < 0)
-							flowResult.flowLeftwardsRight -= dmy.x;
+							flowResult.leftwardsRight -= dmy.x;
 						else
-							flowResult.flowRightwardsRight += dmy.x;
+							flowResult.rightwardsRight += dmy.x;
 
 						if (dmy.y < 0)
-							flowResult.flowUpwardsRight -= dmy.y;
+							flowResult.upwardsRight -= dmy.y;
 						else
-							flowResult.flowDownwardsRight += dmy.y;
+							flowResult.downwardsRight += dmy.y;
 
 						++counterRight;
 					}
@@ -209,48 +209,48 @@ namespace mc
 
 			if (counterLeft != 0)
 			{
-				flowResult.flowLeftwardsLeft /= counterLeft;
-				flowResult.flowRightwardsLeft /= counterLeft;
-				flowResult.flowUpwardsLeft /= counterLeft;
-				flowResult.flowDownwardsLeft /= counterLeft;
+				flowResult.leftwardsLeft /= counterLeft;
+				flowResult.rightwardsLeft /= counterLeft;
+				flowResult.upwardsLeft /= counterLeft;
+				flowResult.downwardsLeft /= counterLeft;
 			}
 
 			if (counterRight != 0)
 			{
-				flowResult.flowLeftwardsRight /= counterRight;
-				flowResult.flowRightwardsRight /= counterRight;
-				flowResult.flowUpwardsRight /= counterRight;
-				flowResult.flowDownwardsRight /= counterRight;
+				flowResult.leftwardsRight /= counterRight;
+				flowResult.rightwardsRight /= counterRight;
+				flowResult.upwardsRight /= counterRight;
+				flowResult.downwardsRight /= counterRight;
 			}
 
 		}
 
 
-		void FlowEstimation::_filterFlow(mc::result::FlowResult& flowResult)
+		void FlowEstimation::_filterFlow(mc::structures::FlowResult& flowResult)
 		{
 			// mutual exclusion of left / right and up / down flow
 
-			flowResult.flowLeftwardsLeft = flowResult.flowLeftwardsLeft > flowResult.flowRightwardsLeft ? flowResult.flowLeftwardsLeft : 0.f;
-			flowResult.flowRightwardsLeft = flowResult.flowRightwardsLeft > flowResult.flowLeftwardsLeft ? flowResult.flowRightwardsLeft : 0.f;
-			flowResult.flowUpwardsLeft = flowResult.flowUpwardsLeft > flowResult.flowDownwardsLeft ? flowResult.flowUpwardsLeft : 0.f;
-			flowResult.flowDownwardsLeft = flowResult.flowDownwardsLeft > flowResult.flowUpwardsLeft ? flowResult.flowDownwardsLeft : 0.f;
+			flowResult.leftwardsLeft = flowResult.leftwardsLeft > flowResult.rightwardsLeft ? flowResult.leftwardsLeft : 0.f;
+			flowResult.rightwardsLeft = flowResult.rightwardsLeft > flowResult.leftwardsLeft ? flowResult.rightwardsLeft : 0.f;
+			flowResult.upwardsLeft = flowResult.upwardsLeft > flowResult.downwardsLeft ? flowResult.upwardsLeft : 0.f;
+			flowResult.downwardsLeft = flowResult.downwardsLeft > flowResult.upwardsLeft ? flowResult.downwardsLeft : 0.f;
 
-			flowResult.flowLeftwardsRight = flowResult.flowLeftwardsRight > flowResult.flowLeftwardsRight ? flowResult.flowLeftwardsRight : 0.f;
-			flowResult.flowRightwardsRight = flowResult.flowRightwardsRight > flowResult.flowRightwardsRight ? flowResult.flowRightwardsRight : 0.f;
-			flowResult.flowUpwardsRight = flowResult.flowUpwardsRight > flowResult.flowDownwardsRight ? flowResult.flowUpwardsRight : 0.f;
-			flowResult.flowDownwardsRight = flowResult.flowDownwardsRight > flowResult.flowUpwardsRight ? flowResult.flowDownwardsRight : 0.f;
+			flowResult.leftwardsRight = flowResult.leftwardsRight > flowResult.leftwardsRight ? flowResult.leftwardsRight : 0.f;
+			flowResult.rightwardsRight = flowResult.rightwardsRight > flowResult.rightwardsRight ? flowResult.rightwardsRight : 0.f;
+			flowResult.upwardsRight = flowResult.upwardsRight > flowResult.downwardsRight ? flowResult.upwardsRight : 0.f;
+			flowResult.downwardsRight = flowResult.downwardsRight > flowResult.upwardsRight ? flowResult.downwardsRight : 0.f;
 
 			// scaling the values to the range (0, 1] --> problem is that we have jumps because of min Threshold
 			// actually expScale is based on maxThreshold
-			flowResult.flowLeftwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.flowLeftwardsLeft);
-			flowResult.flowRightwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.flowRightwardsLeft);
-			flowResult.flowUpwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.flowUpwardsLeft);
-			flowResult.flowDownwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.flowDownwardsLeft);
+			flowResult.leftwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.leftwardsLeft);
+			flowResult.rightwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.rightwardsLeft);
+			flowResult.upwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.upwardsLeft);
+			flowResult.downwardsLeft = 1.f - std::expf(-1.f * expScale * flowResult.downwardsLeft);
 
-			flowResult.flowLeftwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.flowLeftwardsRight);
-			flowResult.flowRightwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.flowRightwardsRight);
-			flowResult.flowUpwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.flowUpwardsRight);
-			flowResult.flowDownwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.flowDownwardsRight);
+			flowResult.leftwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.leftwardsRight);
+			flowResult.rightwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.rightwardsRight);
+			flowResult.upwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.upwardsRight);
+			flowResult.downwardsRight = 1.f - std::expf(-1.f * expScale * flowResult.downwardsRight);
 
 			// this is commented out as this is making problems at the moment
 			//flowLeft[0] = filterLeft[0].apply(flowLeft[0]);

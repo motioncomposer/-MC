@@ -2,7 +2,7 @@
 
 #include "core.h"
 
-#include "result.h"
+#include "structures.h"
 
 #include "opencv2\core.hpp"
 #include "opencv2\imgproc.hpp"
@@ -39,7 +39,7 @@ namespace mc
 				_initGrid();
 			}
 
-			bool apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::result::FlowResult& flowResult,
+			bool apply(const cv::Mat& last, const cv::Mat& cur, const cv::Point& center, mc::structures::FlowResult& flowResult,
 				const cv::Mat& mask = cv::Mat());
 
 			bool draw(cv::Mat& image, const cv::Scalar& color_grid = { 0, 255, 0 }, const cv::Scalar& color_flow = { 0, 0, 255 }, double ofFactor = 16.0,
@@ -83,11 +83,11 @@ namespace mc
 			// internal function
 			void _initGrid();
 
-			void _getFlowWithMask(const cv::Point& center, mc::result::FlowResult& flowResult, const cv::Mat& mask);
+			void _getFlowWithMask(const cv::Point& center, mc::structures::FlowResult& flowResult, const cv::Mat& mask);
 
-			void _getFlowWithoutMask(const cv::Point& center, mc::result::FlowResult& flowResult);
+			void _getFlowWithoutMask(const cv::Point& center, mc::structures::FlowResult& flowResult);
 
-			void _filterFlow(mc::result::FlowResult& flowResult);
+			void _filterFlow(mc::structures::FlowResult& flowResult);
 
 			void _drawFlowWithMask(cv::Mat& image, const cv::Scalar& color_grid, const cv::Scalar& color_flow, double ofFactor, const cv::Mat& mask);
 
