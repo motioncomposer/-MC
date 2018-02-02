@@ -1,13 +1,15 @@
 #pragma once
 
 #include <string>
-
-#include "defines.h"
-#include "structures.h"
+#include <memory>
+#include <mutex>
 
 #include "communication/utils.h"
 #include "communication/sender.h"
 #include "communication/receiver.h"
+
+#include "defines.h"
+#include "structures.h"
 
 
 namespace mc
@@ -18,18 +20,25 @@ namespace mc
 	{
 
 
+
 		// ==========================================================================================================================
 
 
 		enum class CommunicationCoreError
 		{
-			NO_ERROR,
-			READING_NETCONFIG_FAIL,
-			READING_CM2TM_FAIL,
-			READING_TM2CM_FAIL,
-			READING_ME2TM_FAIL,
-			READING_TM2ME_FAIL
+			CC_NO_ERROR,
+			CC_READING_NETCONFIG_FAIL,
+			CC_READING_CM2TM_FAIL,
+			CC_READING_TM2CM_FAIL,
+			CC_READING_ME2TM_FAIL,
+			CC_READING_TM2ME_FAIL
 		};
+
+
+		// ==========================================================================================================================
+
+
+		std::string getCommunicationCoreErrorString(const CommunicationCoreError& state);
 
 
 		// ==========================================================================================================================
@@ -50,16 +59,16 @@ namespace mc
 			std::string filenameTM2ME;
 			std::string keyTM2ME;
 
-			CommunicationCoreFileAccess(const std::string& filenameNetworkConfiguration = mc::defines::filenameNetworkConfiguration,
-				const std::string& keyNetworkConfiguration = mc::defines::keyNetworkConfiguration,
-				const std::string& filenameCM2TM = mc::defines::filenameCM2TM,
-				const std::string& keyCM2TM = mc::defines::keyCM2TM,
-				const std::string& filenameTM2CM = mc::defines::filenameTM2CM,
-				const std::string& keyTM2CM = mc::defines::keyTM2CM,
-				const std::string& filenameME2TM = mc::defines::filenameME2TM,
-				const std::string& keyME2TM = mc::defines::keyME2TM,
-				const std::string& filenameTM2ME = mc::defines::filenameTM2ME,
-				const std::string& keyTM2ME = mc::defines::keyTM2ME) : filenameNetworkConfiguration(filenameNetworkConfiguration),
+			CommunicationCoreFileAccess(const std::string& filenameNetworkConfiguration,
+				const std::string& keyNetworkConfiguration,
+				const std::string& filenameCM2TM,
+				const std::string& keyCM2TM,
+				const std::string& filenameTM2CM,
+				const std::string& keyTM2CM,
+				const std::string& filenameME2TM,
+				const std::string& keyME2TM,
+				const std::string& filenameTM2ME,
+				const std::string& keyTM2ME) : filenameNetworkConfiguration(filenameNetworkConfiguration),
 				keyNetworkConfiguration(keyNetworkConfiguration),
 				filenameCM2TM(filenameCM2TM),
 				keyCM2TM(keyCM2TM),
@@ -89,15 +98,35 @@ namespace mc
 			CommunicationCoreError getStateCode() const;
 
 
+			void notifyLoaded();
 
-			void notifyControlModule();
+			void notifyReady();
 
-			//void readCommands();
+			void notifyStopped();			
 
-			// this needs to be in "structures.h"
-			void sendTrackingModuleState(const mc::test::TrackingModuleState& state);
 
-			void sendResultBundle(const mc::result::ResultBundle& result);
+			void waitForStateUpdate();
+
+
+			void sendError(int error);
+
+			void sendResult(const mc::structures::Result& result);
+
+
+			void updateActivation(mc::structures::Activation& activation);
+
+			void updateSelection(mc::structures::Selection& selection);
+
+
+			bool keepRunning();
+
+			bool initRequested();
+
+			bool stopRequested();
+
+
+			void resetState();
+
 
 		private:
 
@@ -105,18 +134,20 @@ namespace mc
 
 			mc::utils::NetworkConfiguration netConfig;
 
-			mc::command::CMCommandBundle cmCommandBundle;
-			std::shared_ptr<mc::receiver::ControlModuleReceiver> ptr_receiverFromCM;
-			std::shared_ptr<mc::sender::ControlModuleSender> ptr_senderToCM;
 
-			mc::command::MECommandBundle meCommandBundle;
-			std::shared_ptr<mc::receiver::MusicEnvironmentReceiver> ptr_receiverFromME;
-			std::shared_ptr<mc::sender::MusicEnvironmentSender> ptr_senderToME;
+			mc::structures::ControlBundle controlBundle;
+			std::shared_ptr<mc::receiver::ControlModuleReceiver> receiverFromCM;
+			std::shared_ptr<mc::sender::ControlModuleSender> senderToCM;
+
+			mc::structures::MusicBundle musicBundle;
+			std::shared_ptr<mc::receiver::MusicEnvironmentReceiver> receiverFromME;
+			std::shared_ptr<mc::sender::MusicEnvironmentSender> senderToME;
 
 		};
 
 
-		std::string getCommunicationCoreErrorString(const CommunicationCoreError& state);
+		// ==========================================================================================================================
+
 
 	}
 }
