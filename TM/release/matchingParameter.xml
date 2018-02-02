@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<matchingParameter>
+  <stereoMethod>BLOCK_MATCHING</stereoMethod>
+  <ndisparities>128</ndisparities>
+  <SADWindowSize>21</SADWindowSize>
+  <P1>128</P1>
+  <P2>256</P2>
+  <disp12MaxDiff>20</disp12MaxDiff>
+  <preFilterCap>16</preFilterCap>
+  <uniquenessRatio>1</uniquenessRatio>
+  <speckleWindowSize>400</speckleWindowSize>
+  <speckleRange>120</speckleRange>
+  <fullDP>1</fullDP></matchingParameter>
+</opencv_storage>
