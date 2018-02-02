@@ -123,9 +123,11 @@ namespace mc
 		// ==========================================================================================================================
 
 
-		void handleInitRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t)
+		void handleInitRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t)
 		{
-			ref->stateControl = 1;
+			std::unique_lock<std::mutex> lck(ref->mtx);
+			ref->state = 1;
+			ref->cond.notify_one();
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- received init command" << std::endl;
@@ -133,9 +135,11 @@ namespace mc
 		}
 
 
-		void handleStopRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t)
+		void handleStopRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t)
 		{
-			ref->stateControl = -1;
+			std::unique_lock<std::mutex> lck(ref->mtx);
+			ref->state = -1;
+			ref->cond.notify_one();
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- received stop command" << std::endl;
@@ -143,47 +147,47 @@ namespace mc
 		}
 
 
-		void handlePlayerTrackingRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerBlobRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
-			// actually we have to make here some special handling for the player tracking stuff
-
 			if (player == 10)
 			{
-				ref->setPlayerTracking[0] = (dmy != 0);
-				ref->setPlayerTracking[1] = (dmy != 0);
-				// actually there are 3 tracking codes we can receive ...
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->player[0].time = std::chrono::high_resolution_clock::now();
+				ref->player[1].time = ref->player[0].time;
+				ref->player[0].blob = dmy;
+				ref->player[1].blob = dmy;
 			}
-			else
-				ref->setPlayerTracking[(player > 0 ? player - 1 : player)] = (dmy != 0);
-
-#ifdef MC_RECEIVING_VERBOSE
-			std::cout << "-- received player tracking command" << std::endl;
-			std::cout << "-- tracking player: " << (player == 10 ? "all" : std::to_string(player)) << " switched to " << (dmy != 0 ? "on" : "off") << std::endl;
-#endif
-		}
-
-
-		void handlePlayerBlobRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
-		{
-			int32_t dmy;
-			args >> dmy >> osc::EndMessage;
-
-			// actually we have to make here some special handling for the player tracking stuff
-
-			if (player == 10)
+			else if(player == 0)
 			{
-				ref->setPlayerTracking[0] = (dmy != 0);
-				ref->setPlayerTracking[1] = (dmy != 0);
+				std::lock_guard<std::mutex> guard(ref->mtx);
+
+				if (ref->player[1].blob < 0)
+				{
+					ref->player[0].time = std::chrono::high_resolution_clock::now();
+					ref->player[0].blob = dmy;
+				}
+				
 			}
-			else
+			else if (player == 1 || player == 2)
 			{
-				// here we still have to check if the player id is in the correct range ...
-				// we need some kind of player mode ...
-				ref->setPlayerTracking[(player > 0 ? player - 1 : player)] = (dmy != 0);
+				std::lock_guard<std::mutex> guard(ref->mtx);
+
+				if (ref->player[0].blob >= 0 && ref->player[1].blob >= 0)
+				{
+					ref->player[player - 1].time = std::chrono::high_resolution_clock::now();
+					ref->player[player - 1].blob = dmy;
+
+					if (ref->player[0].blob < 0)
+					{
+						std::swap(ref->player[0].time, ref->player[1].time);
+						std::swap(ref->player[0].blob, ref->player[1].blob);
+					}
+				}
 			}
+
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- received player blob command" << std::endl;
@@ -192,24 +196,59 @@ namespace mc
 		}
 
 
-		void handleZoneTrackingRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handlePlayerTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
-			// actually we have to make here some special handling for the player tracking stuff
+			if (player == 10)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->player[0].tracking = (dmy != 0);
+				ref->player[1].tracking = (dmy != 0);
+			}
+			else if (player == 0 || player == 1 || player == 2)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->player[(player > 0 ? player - 1 : player)].tracking = (dmy != 0);
+			}
+
+#ifdef MC_RECEIVING_VERBOSE
+			std::cout << "-- received player tracking command" << std::endl;
+			std::cout << "-- tracking player: " << (player == 10 ? "all" : std::to_string(player)) << " switched to " << (dmy != 0 ? "on" : "off") << std::endl;
+#endif
+		}
+
+
+		void handlePlayerResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		{
+			// here we need something ... as discussed with robert ...
+			// we need a special structure PlayerReset = std::array<...>;
+			// same procedure like for activation ...
+		}
+
+
+		void handleZoneBlobRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		{
+			int32_t dmy[4];
+			args >> dmy[0] >> dmy[1] >> dmy[2] >> dmy[3] >> osc::EndMessage;
+
 
 			if (zone == 10)
 			{
-				ref->setZoneTracking[0] = (dmy != 0);
-				ref->setZoneTracking[1] = (dmy != 0);
-				ref->setZoneTracking[2] = (dmy != 0);
-				ref->setZoneTracking[3] = (dmy != 0);
-				ref->setZoneTracking[4] = (dmy != 0);
-				ref->setZoneTracking[5] = (dmy != 0);
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->zone[0].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+				ref->zone[1].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+				ref->zone[2].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+				ref->zone[3].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+				ref->zone[4].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+				ref->zone[5].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
 			}
-			else
-				ref->setZoneTracking[zone] = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->zone[zone].blob = cv::Rect(dmy[0], dmy[1], dmy[2], dmy[3]);
+			}
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- received zone tracking command" << std::endl;
@@ -218,33 +257,40 @@ namespace mc
 		}
 
 
-		void handleZoneBlobRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
-			// actually we have to make here some special handling for the player tracking stuff
-
-			// we need to add the a player mode to (state space machine ...)
-
-			// as we handle the player mode implicitly
 
 			if (zone == 10)
 			{
-				ref->setZoneTracking[0] = (dmy != 0);
-				ref->setZoneTracking[1] = (dmy != 0);
-				ref->setZoneTracking[2] = (dmy != 0);
-				ref->setZoneTracking[3] = (dmy != 0);
-				ref->setZoneTracking[4] = (dmy != 0);
-				ref->setZoneTracking[5] = (dmy != 0);
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->zone[0].tracking = (dmy != 0);
+				ref->zone[1].tracking = (dmy != 0);
+				ref->zone[2].tracking = (dmy != 0);
+				ref->zone[3].tracking = (dmy != 0);
+				ref->zone[4].tracking = (dmy != 0);
+				ref->zone[5].tracking = (dmy != 0);
 			}
-			else
-				ref->setZoneTracking[zone - 1] = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+				ref->zone[zone].tracking = (dmy != 0);
+			}
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- received zone tracking command" << std::endl;
 			std::cout << "-- tracking zone: " << (zone == 10 ? "all" : std::to_string(zone)) << " switched to " << (dmy != 0 ? "on" : "off") << std::endl;
 #endif
+		}
+
+		
+		void handleZoneResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		{
+			// actually we do not need a zone reset as at the moment there are no values learned by the system
+			// for each zone ...
+			// thats why i think we can remove this ...
 		}
 
 
@@ -304,18 +350,18 @@ namespace mc
 		// ==========================================================================================================================
 
 
-		void handlePlayerDiscreteHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteHandLeft = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteHandLeft = (dmy != 0);
+				ref->player[0].sendDiscreteHandLeft = (dmy != 0);
+				ref->player[1].sendDiscreteHandLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteHandLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteHandLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteHandLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -324,18 +370,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteHandRight = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteHandRight = (dmy != 0);
+				ref->player[0].sendDiscreteHandRight = (dmy != 0);
+				ref->player[1].sendDiscreteHandRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteHandRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteHandRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteHandRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -344,18 +390,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteHeadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteHeadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteHead = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteHead = (dmy != 0);
+				ref->player[0].sendDiscreteHead = (dmy != 0);
+				ref->player[1].sendDiscreteHead = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteHead = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteHead = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteHead of " << (player == 10 ? "all" : std::to_string(player))
@@ -364,18 +410,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteLegLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteLegLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteLegLeft = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteLegLeft = (dmy != 0);
+				ref->player[0].sendDiscreteLegLeft = (dmy != 0);
+				ref->player[1].sendDiscreteLegLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteLegLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteLegLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteLegLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -384,18 +430,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteLegRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteLegRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteLegRight = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteLegRight = (dmy != 0);
+				ref->player[0].sendDiscreteLegRight = (dmy != 0);
+				ref->player[1].sendDiscreteLegRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteLegRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteLegRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteLegRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -404,18 +450,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteBodyUpperRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteBodyUpperRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteBodyUpper = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteBodyUpper = (dmy != 0);
+				ref->player[0].sendDiscreteBodyUpper = (dmy != 0);
+				ref->player[1].sendDiscreteBodyUpper = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteBodyUpper = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteBodyUpper = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteBodyUpper of " << (player == 10 ? "all" : std::to_string(player))
@@ -424,18 +470,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteBodyLowerRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteBodyLowerRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteBodyLower = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteBodyLower = (dmy != 0);
+				ref->player[0].sendDiscreteBodyLower = (dmy != 0);
+				ref->player[1].sendDiscreteBodyLower = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteBodyLower = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteBodyLower = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteBodyLower of " << (player == 10 ? "all" : std::to_string(player))
@@ -444,18 +490,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteBodyLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteBodyLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteBodyLeft = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteBodyLeft = (dmy != 0);
+				ref->player[0].sendDiscreteBodyLeft = (dmy != 0);
+				ref->player[1].sendDiscreteBodyLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteBodyLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteBodyLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteBodyLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -464,18 +510,18 @@ namespace mc
 		}
 
 
-		void handlePlayerDiscreteBodyRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerDiscreteBodyRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendDiscreteBodyRight = (dmy != 0);
-				ref->playerCommands[1].sendDiscreteBodyRight = (dmy != 0);
+				ref->player[0].sendDiscreteBodyRight = (dmy != 0);
+				ref->player[1].sendDiscreteBodyRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendDiscreteBodyRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendDiscreteBodyRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscreteBodyRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -484,18 +530,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalHandLeft = (dmy != 0);
-				ref->playerCommands[1].sendNormalHandLeft = (dmy != 0);
+				ref->player[0].sendNormalHandLeft = (dmy != 0);
+				ref->player[1].sendNormalHandLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalHandLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalHandLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalHandLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -504,18 +550,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalHandRight = (dmy != 0);
-				ref->playerCommands[1].sendNormalHandRight = (dmy != 0);
+				ref->player[0].sendNormalHandRight = (dmy != 0);
+				ref->player[1].sendNormalHandRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalHandRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalHandRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalHandRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -524,18 +570,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalHeadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalHeadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalHead = (dmy != 0);
-				ref->playerCommands[1].sendNormalHead = (dmy != 0);
+				ref->player[0].sendNormalHead = (dmy != 0);
+				ref->player[1].sendNormalHead = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalHead = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalHead = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalHead of " << (player == 10 ? "all" : std::to_string(player))
@@ -544,18 +590,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalLegLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalLegLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalLegLeft = (dmy != 0);
-				ref->playerCommands[1].sendNormalLegLeft = (dmy != 0);
+				ref->player[0].sendNormalLegLeft = (dmy != 0);
+				ref->player[1].sendNormalLegLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalLegLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalLegLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalLegLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -564,18 +610,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalLegRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalLegRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalLegRight = (dmy != 0);
-				ref->playerCommands[1].sendNormalLegRight = (dmy != 0);
+				ref->player[0].sendNormalLegRight = (dmy != 0);
+				ref->player[1].sendNormalLegRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalLegRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalLegRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalLegRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -584,18 +630,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalBodyUpperRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalBodyUpperRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalBodyUpper = (dmy != 0);
-				ref->playerCommands[1].sendNormalBodyUpper = (dmy != 0);
+				ref->player[0].sendNormalBodyUpper = (dmy != 0);
+				ref->player[1].sendNormalBodyUpper = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalBodyUpper = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalBodyUpper = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalBodyUpper of " << (player == 10 ? "all" : std::to_string(player))
@@ -604,18 +650,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalBodyLowerRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalBodyLowerRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalBodyLower = (dmy != 0);
-				ref->playerCommands[1].sendNormalBodyLower = (dmy != 0);
+				ref->player[0].sendNormalBodyLower = (dmy != 0);
+				ref->player[1].sendNormalBodyLower = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalBodyLower = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalBodyLower = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalBodyLower of " << (player == 10 ? "all" : std::to_string(player))
@@ -624,18 +670,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalBodyLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalBodyLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalBodyLeft = (dmy != 0);
-				ref->playerCommands[1].sendNormalBodyLeft = (dmy != 0);
+				ref->player[0].sendNormalBodyLeft = (dmy != 0);
+				ref->player[1].sendNormalBodyLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalBodyLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalBodyLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalBodyLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -644,18 +690,18 @@ namespace mc
 		}
 
 
-		void handlePlayerNormalBodyRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerNormalBodyRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendNormalBodyRight = (dmy != 0);
-				ref->playerCommands[1].sendNormalBodyRight = (dmy != 0);
+				ref->player[0].sendNormalBodyRight = (dmy != 0);
+				ref->player[1].sendNormalBodyRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendNormalBodyRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendNormalBodyRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormalBodyRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -664,18 +710,23 @@ namespace mc
 		}
 
 
-		void handlePlayerPeakRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		//////////////////////////////////////////////
+		///////////////////////////////////////////////
+
+		// this needs to be re-ordered in case we really move peak to position ...
+
+		void handlePlayerPeakRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPeak = (dmy != 0);
-				ref->playerCommands[1].sendPeak = (dmy != 0);
+				ref->player[0].sendPositionPeak = (dmy != 0);
+				ref->player[1].sendPositionPeak = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPeak = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionPeak = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPeak of " << (player == 10 ? "all" : std::to_string(player))
@@ -684,18 +735,22 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowLeftwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		////////////////////////////////////////////////
+		///////////////////////////////////////////////////
+
+
+		void handlePlayerFlowLeftwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowLeftwardsLeft = (dmy != 0);
-				ref->playerCommands[1].sendFlowLeftwardsLeft = (dmy != 0);
+				ref->player[0].sendFlowLeftwardsLeft = (dmy != 0);
+				ref->player[1].sendFlowLeftwardsLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowLeftwardsLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowLeftwardsLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowLeftwardsLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -704,18 +759,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowLeftwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowLeftwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowLeftwardsRight = (dmy != 0);
-				ref->playerCommands[1].sendFlowLeftwardsRight = (dmy != 0);
+				ref->player[0].sendFlowLeftwardsRight = (dmy != 0);
+				ref->player[1].sendFlowLeftwardsRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowLeftwardsRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowLeftwardsRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowLeftwardsRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -724,18 +779,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowRightwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowRightwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowRightwardsLeft = (dmy != 0);
-				ref->playerCommands[1].sendFlowRightwardsLeft = (dmy != 0);
+				ref->player[0].sendFlowRightwardsLeft = (dmy != 0);
+				ref->player[1].sendFlowRightwardsLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowRightwardsLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowRightwardsLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowRightwardsLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -744,18 +799,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowRightwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowRightwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowRightwardsRight = (dmy != 0);
-				ref->playerCommands[1].sendFlowRightwardsRight = (dmy != 0);
+				ref->player[0].sendFlowRightwardsRight = (dmy != 0);
+				ref->player[1].sendFlowRightwardsRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowRightwardsRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowRightwardsRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowRightwardsRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -764,18 +819,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowUpwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowUpwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowUpwardsLeft = (dmy != 0);
-				ref->playerCommands[1].sendFlowUpwardsLeft = (dmy != 0);
+				ref->player[0].sendFlowUpwardsLeft = (dmy != 0);
+				ref->player[1].sendFlowUpwardsLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowUpwardsLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowUpwardsLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowUpwardsLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -784,18 +839,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowUpwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowUpwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowUpwardsRight = (dmy != 0);
-				ref->playerCommands[1].sendFlowUpwardsRight = (dmy != 0);
+				ref->player[0].sendFlowUpwardsRight = (dmy != 0);
+				ref->player[1].sendFlowUpwardsRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowUpwardsRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowUpwardsRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowUpwardsRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -804,18 +859,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowDownwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowDownwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowDownwardsLeft = (dmy != 0);
-				ref->playerCommands[1].sendFlowDownwardsLeft = (dmy != 0);
+				ref->player[0].sendFlowDownwardsLeft = (dmy != 0);
+				ref->player[1].sendFlowDownwardsLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowDownwardsLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowDownwardsLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowDownwardsLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -824,18 +879,18 @@ namespace mc
 		}
 
 
-		void handlePlayerFlowDownwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerFlowDownwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendFlowDownwardsRight = (dmy != 0);
-				ref->playerCommands[1].sendFlowDownwardsRight = (dmy != 0);
+				ref->player[0].sendFlowDownwardsRight = (dmy != 0);
+				ref->player[1].sendFlowDownwardsRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendFlowDownwardsRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendFlowDownwardsRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowDownwardsRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -844,18 +899,18 @@ namespace mc
 		}
 
 
-		void handlePlayerLocationReadyRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerLocationReadyRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendLocationReady = (dmy != 0);
-				ref->playerCommands[1].sendLocationReady = (dmy != 0);
+				ref->player[0].sendLocationReady = (dmy != 0);
+				ref->player[1].sendLocationReady = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendLocationReady = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendLocationReady = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendLocationReady of " << (player == 10 ? "all" : std::to_string(player))
@@ -864,18 +919,18 @@ namespace mc
 		}
 
 
-		void handlePlayerLocationPresentRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerLocationPresentRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendLocationPresent = (dmy != 0);
-				ref->playerCommands[1].sendLocationPresent = (dmy != 0);
+				ref->player[0].sendLocationPresent = (dmy != 0);
+				ref->player[1].sendLocationPresent = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendLocationPresent = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendLocationPresent = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendLocationPresent of " << (player == 10 ? "all" : std::to_string(player))
@@ -884,18 +939,18 @@ namespace mc
 		}
 
 
-		void handlePlayerLocationCenterXRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerLocationCenterXRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendLocationCenterX = (dmy != 0);
-				ref->playerCommands[1].sendLocationCenterX = (dmy != 0);
+				ref->player[0].sendLocationCenterX = (dmy != 0);
+				ref->player[1].sendLocationCenterX = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendLocationCenterX = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendLocationCenterX = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendLocationCenterX of " << (player == 10 ? "all" : std::to_string(player))
@@ -904,18 +959,18 @@ namespace mc
 		}
 
 
-		void handlePlayerLocationCenterZRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerLocationCenterZRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendLocationCenterZ = (dmy != 0);
-				ref->playerCommands[1].sendLocationCenterZ = (dmy != 0);
+				ref->player[0].sendLocationCenterZ = (dmy != 0);
+				ref->player[1].sendLocationCenterZ = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendLocationCenterZ = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendLocationCenterZ = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendLocationCenterZ of " << (player == 10 ? "all" : std::to_string(player))
@@ -924,18 +979,18 @@ namespace mc
 		}
 
 
-		void handlePlayerLocationOutOfRangeRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerLocationOutOfRangeRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendLocationOutOfRange = (dmy != 0);
-				ref->playerCommands[1].sendLocationOutOfRange = (dmy != 0);
+				ref->player[0].sendLocationOutOfRange = (dmy != 0);
+				ref->player[1].sendLocationOutOfRange = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendLocationOutOfRange = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendLocationOutOfRange = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendLocationOutOfRange of " << (player == 10 ? "all" : std::to_string(player))
@@ -944,18 +999,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionHeightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionHeightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionHeight = (dmy != 0);
-				ref->playerCommands[1].sendPositionHeight = (dmy != 0);
+				ref->player[0].sendPositionHeight = (dmy != 0);
+				ref->player[1].sendPositionHeight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionHeight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionHeight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionHeight of " << (player == 10 ? "all" : std::to_string(player))
@@ -964,18 +1019,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionHeightLevelRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionHeightLevelRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionHeightLevel = (dmy != 0);
-				ref->playerCommands[1].sendPositionHeightLevel = (dmy != 0);
+				ref->player[0].sendPositionHeightLevel = (dmy != 0);
+				ref->player[1].sendPositionHeightLevel = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionHeightLevel = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionHeightLevel = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionHeightLevel of " << (player == 10 ? "all" : std::to_string(player))
@@ -984,18 +1039,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionVerticalHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionVerticalHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionVerticalHandLeft = (dmy != 0);
-				ref->playerCommands[1].sendPositionVerticalHandLeft = (dmy != 0);
+				ref->player[0].sendPositionVerticalHandLeft = (dmy != 0);
+				ref->player[1].sendPositionVerticalHandLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionVerticalHandLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionVerticalHandLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionVerticalHandLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1004,18 +1059,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionVerticalHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionVerticalHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionVerticalHandRight = (dmy != 0);
-				ref->playerCommands[1].sendPositionVerticalHandRight = (dmy != 0);
+				ref->player[0].sendPositionVerticalHandRight = (dmy != 0);
+				ref->player[1].sendPositionVerticalHandRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionVerticalHandRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionVerticalHandRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionVerticalHandRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1024,18 +1079,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionSideHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionSideHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionSideHandLeft = (dmy != 0);
-				ref->playerCommands[1].sendPositionSideHandLeft = (dmy != 0);
+				ref->player[0].sendPositionSideHandLeft = (dmy != 0);
+				ref->player[1].sendPositionSideHandLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionSideHandLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionSideHandLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionSideHandLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1044,18 +1099,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionSideHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionSideHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionSideHandRight = (dmy != 0);
-				ref->playerCommands[1].sendPositionSideHandRight = (dmy != 0);
+				ref->player[0].sendPositionSideHandRight = (dmy != 0);
+				ref->player[1].sendPositionSideHandRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionSideHandRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionSideHandRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionSideHandRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1064,18 +1119,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionSideFootLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionSideFootLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionSideFootLeft = (dmy != 0);
-				ref->playerCommands[1].sendPositionSideFootLeft = (dmy != 0);
+				ref->player[0].sendPositionSideFootLeft = (dmy != 0);
+				ref->player[1].sendPositionSideFootLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionSideFootLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionSideFootLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionSideFootLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1084,18 +1139,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionSideFootRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionSideFootRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionSideFootRight = (dmy != 0);
-				ref->playerCommands[1].sendPositionSideFootRight = (dmy != 0);
+				ref->player[0].sendPositionSideFootRight = (dmy != 0);
+				ref->player[1].sendPositionSideFootRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionSideFootRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionSideFootRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionSideFootRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1104,18 +1159,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionFrontHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionFrontHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionFrontHandLeft = (dmy != 0);
-				ref->playerCommands[1].sendPositionFrontHandLeft = (dmy != 0);
+				ref->player[0].sendPositionFrontHandLeft = (dmy != 0);
+				ref->player[1].sendPositionFrontHandLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionFrontHandLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionFrontHandLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionFrontHandLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1124,18 +1179,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionFrontHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionFrontHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionFrontHandRight = (dmy != 0);
-				ref->playerCommands[1].sendPositionFrontHandRight = (dmy != 0);
+				ref->player[0].sendPositionFrontHandRight = (dmy != 0);
+				ref->player[1].sendPositionFrontHandRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionFrontHandRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionFrontHandRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionFrontHandRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1144,18 +1199,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionFrontFootLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionFrontFootLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionFrontFootLeft = (dmy != 0);
-				ref->playerCommands[1].sendPositionFrontFootLeft = (dmy != 0);
+				ref->player[0].sendPositionFrontFootLeft = (dmy != 0);
+				ref->player[1].sendPositionFrontFootLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionFrontFootLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionFrontFootLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionFrontFootLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1164,18 +1219,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionFrontFootRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionFrontFootRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionFrontFootRight = (dmy != 0);
-				ref->playerCommands[1].sendPositionFrontFootRight = (dmy != 0);
+				ref->player[0].sendPositionFrontFootRight = (dmy != 0);
+				ref->player[1].sendPositionFrontFootRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionFrontFootRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionFrontFootRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionFrontFootRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1184,18 +1239,18 @@ namespace mc
 		}
 
 
-		void handlePlayerPositionWidthRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerPositionWidthRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendPositionWidth = (dmy != 0);
-				ref->playerCommands[1].sendPositionWidth = (dmy != 0);
+				ref->player[0].sendPositionWidth = (dmy != 0);
+				ref->player[1].sendPositionWidth = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendPositionWidth = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendPositionWidth = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendPositionWidth of " << (player == 10 ? "all" : std::to_string(player))
@@ -1204,18 +1259,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitOverheadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitOverheadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitOverhead = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitOverhead = (dmy != 0);
+				ref->player[0].sendGestureHitOverhead = (dmy != 0);
+				ref->player[1].sendGestureHitOverhead = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitOverhead = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitOverhead = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitOverhead of " << (player == 10 ? "all" : std::to_string(player))
@@ -1224,18 +1279,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitSideLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitSideLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitSideLeft = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitSideLeft = (dmy != 0);
+				ref->player[0].sendGestureHitSideLeft = (dmy != 0);
+				ref->player[1].sendGestureHitSideLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitSideLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitSideLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitSideLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1244,18 +1299,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitSideRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitSideRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitSideRight = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitSideRight = (dmy != 0);
+				ref->player[0].sendGestureHitSideRight = (dmy != 0);
+				ref->player[1].sendGestureHitSideRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitSideRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitSideRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitSideRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1264,18 +1319,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitDownLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitDownLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitDownLeft = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitDownLeft = (dmy != 0);
+				ref->player[0].sendGestureHitDownLeft = (dmy != 0);
+				ref->player[1].sendGestureHitDownLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitDownLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitDownLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitDownLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1284,18 +1339,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitDownRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitDownRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitDownRight = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitDownRight = (dmy != 0);
+				ref->player[0].sendGestureHitDownRight = (dmy != 0);
+				ref->player[1].sendGestureHitDownRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitDownRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitDownRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitDownRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1304,18 +1359,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitForwardLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitForwardLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitForwardLeft = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitForwardLeft = (dmy != 0);
+				ref->player[0].sendGestureHitForwardLeft = (dmy != 0);
+				ref->player[1].sendGestureHitForwardLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitForwardLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitForwardLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitForwardLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1324,18 +1379,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureHitForwardRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureHitForwardRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureHitForwardRight = (dmy != 0);
-				ref->playerCommands[1].sendGestureHitForwardRight = (dmy != 0);
+				ref->player[0].sendGestureHitForwardRight = (dmy != 0);
+				ref->player[1].sendGestureHitForwardRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureHitForwardRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureHitForwardRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureHitForwardRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1344,18 +1399,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureKickSideLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureKickSideLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureKickSideLeft = (dmy != 0);
-				ref->playerCommands[1].sendGestureKickSideLeft = (dmy != 0);
+				ref->player[0].sendGestureKickSideLeft = (dmy != 0);
+				ref->player[1].sendGestureKickSideLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureKickSideLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureKickSideLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureKickSideLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1364,18 +1419,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureKickSideRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureKickSideRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureKickSideRight = (dmy != 0);
-				ref->playerCommands[1].sendGestureKickSideRight = (dmy != 0);
+				ref->player[0].sendGestureKickSideRight = (dmy != 0);
+				ref->player[1].sendGestureKickSideRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureKickSideRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureKickSideRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureKickSideRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1384,18 +1439,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureKickForwardLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureKickForwardLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureKickForwardLeft = (dmy != 0);
-				ref->playerCommands[1].sendGestureKickForwardLeft = (dmy != 0);
+				ref->player[0].sendGestureKickForwardLeft = (dmy != 0);
+				ref->player[1].sendGestureKickForwardLeft = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureKickForwardLeft = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureKickForwardLeft = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureKickForwardLeft of " << (player == 10 ? "all" : std::to_string(player))
@@ -1404,18 +1459,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureKickForwardRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureKickForwardRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureKickForwardRight = (dmy != 0);
-				ref->playerCommands[1].sendGestureKickForwardRight = (dmy != 0);
+				ref->player[0].sendGestureKickForwardRight = (dmy != 0);
+				ref->player[1].sendGestureKickForwardRight = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureKickForwardRight = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureKickForwardRight = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureKickForwardRight of " << (player == 10 ? "all" : std::to_string(player))
@@ -1424,18 +1479,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureDoubleArmSideRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureDoubleArmSideRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureDoubleArmSide = (dmy != 0);
-				ref->playerCommands[1].sendGestureDoubleArmSide = (dmy != 0);
+				ref->player[0].sendGestureDoubleArmSide = (dmy != 0);
+				ref->player[1].sendGestureDoubleArmSide = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureDoubleArmSide = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureDoubleArmSide = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureDoubleArmSide of " << (player == 10 ? "all" : std::to_string(player))
@@ -1444,18 +1499,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureDoubleArmSideCloseRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureDoubleArmSideCloseRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureDoubleArmSideClose = (dmy != 0);
-				ref->playerCommands[1].sendGestureDoubleArmSideClose = (dmy != 0);
+				ref->player[0].sendGestureDoubleArmSideClose = (dmy != 0);
+				ref->player[1].sendGestureDoubleArmSideClose = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureDoubleArmSideClose = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureDoubleArmSideClose = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureDoubleArmSideClose of " << (player == 10 ? "all" : std::to_string(player))
@@ -1464,18 +1519,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureJumpRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureJumpRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureJump = (dmy != 0);
-				ref->playerCommands[1].sendGestureJump = (dmy != 0);
+				ref->player[0].sendGestureJump = (dmy != 0);
+				ref->player[1].sendGestureJump = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureJump = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureJump = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureJump of " << (player == 10 ? "all" : std::to_string(player))
@@ -1484,18 +1539,18 @@ namespace mc
 		}
 
 
-		void handlePlayerGestureClapRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
+		void handlePlayerGestureClapRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (player == 10)
 			{
-				ref->playerCommands[0].sendGestureClap = (dmy != 0);
-				ref->playerCommands[1].sendGestureClap = (dmy != 0);
+				ref->player[0].sendGestureClap = (dmy != 0);
+				ref->player[1].sendGestureClap = (dmy != 0);
 			}
-			else
-				ref->playerCommands[(player > 0 ? player - 1 : player)].sendGestureClap = (dmy != 0);
+			else if (player == 0 || player == 1 || player == 2)
+				ref->player[(player > 0 ? player - 1 : player)].sendGestureClap = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendGestureClap of " << (player == 10 ? "all" : std::to_string(player))
@@ -1504,22 +1559,22 @@ namespace mc
 		}
 
 
-		void handleZoneDiscreteRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneDiscreteRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendDiscrete = (dmy != 0);
-				ref->zoneCommands[1].sendDiscrete = (dmy != 0);
-				ref->zoneCommands[2].sendDiscrete = (dmy != 0);
-				ref->zoneCommands[3].sendDiscrete = (dmy != 0);
-				ref->zoneCommands[4].sendDiscrete = (dmy != 0);
-				ref->zoneCommands[5].sendDiscrete = (dmy != 0);
+				ref->zone[0].sendDiscrete = (dmy != 0);
+				ref->zone[1].sendDiscrete = (dmy != 0);
+				ref->zone[2].sendDiscrete = (dmy != 0);
+				ref->zone[3].sendDiscrete = (dmy != 0);
+				ref->zone[4].sendDiscrete = (dmy != 0);
+				ref->zone[5].sendDiscrete = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendDiscrete = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendDiscrete = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendDiscrete of " << (zone == 10 ? "all" : std::to_string(zone))
@@ -1528,22 +1583,22 @@ namespace mc
 		}
 
 
-		void handleZoneNormalRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneNormalRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendNormal = (dmy != 0);
-				ref->zoneCommands[1].sendNormal = (dmy != 0);
-				ref->zoneCommands[2].sendNormal = (dmy != 0);
-				ref->zoneCommands[3].sendNormal = (dmy != 0);
-				ref->zoneCommands[4].sendNormal = (dmy != 0);
-				ref->zoneCommands[5].sendNormal = (dmy != 0);
+				ref->zone[0].sendNormal = (dmy != 0);
+				ref->zone[1].sendNormal = (dmy != 0);
+				ref->zone[2].sendNormal = (dmy != 0);
+				ref->zone[3].sendNormal = (dmy != 0);
+				ref->zone[4].sendNormal = (dmy != 0);
+				ref->zone[5].sendNormal = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendNormal = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendNormal = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendNormal of " << (zone == 10 ? "all" : std::to_string(zone))
@@ -1552,22 +1607,22 @@ namespace mc
 		}
 
 
-		void handleZoneFlowLeftwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneFlowLeftwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendFlowLeftwards = (dmy != 0);
-				ref->zoneCommands[1].sendFlowLeftwards = (dmy != 0);
-				ref->zoneCommands[2].sendFlowLeftwards = (dmy != 0);
-				ref->zoneCommands[3].sendFlowLeftwards = (dmy != 0);
-				ref->zoneCommands[4].sendFlowLeftwards = (dmy != 0);
-				ref->zoneCommands[5].sendFlowLeftwards = (dmy != 0);
+				ref->zone[0].sendFlowLeftwards = (dmy != 0);
+				ref->zone[1].sendFlowLeftwards = (dmy != 0);
+				ref->zone[2].sendFlowLeftwards = (dmy != 0);
+				ref->zone[3].sendFlowLeftwards = (dmy != 0);
+				ref->zone[4].sendFlowLeftwards = (dmy != 0);
+				ref->zone[5].sendFlowLeftwards = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendFlowLeftwards = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendFlowLeftwards = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowLeftwards of " << (zone == 10 ? "all" : std::to_string(zone))
@@ -1576,22 +1631,22 @@ namespace mc
 		}
 
 
-		void handleZoneFlowRightwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneFlowRightwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendFlowRightwards = (dmy != 0);
-				ref->zoneCommands[1].sendFlowRightwards = (dmy != 0);
-				ref->zoneCommands[2].sendFlowRightwards = (dmy != 0);
-				ref->zoneCommands[3].sendFlowRightwards = (dmy != 0);
-				ref->zoneCommands[4].sendFlowRightwards = (dmy != 0);
-				ref->zoneCommands[5].sendFlowRightwards = (dmy != 0);
+				ref->zone[0].sendFlowRightwards = (dmy != 0);
+				ref->zone[1].sendFlowRightwards = (dmy != 0);
+				ref->zone[2].sendFlowRightwards = (dmy != 0);
+				ref->zone[3].sendFlowRightwards = (dmy != 0);
+				ref->zone[4].sendFlowRightwards = (dmy != 0);
+				ref->zone[5].sendFlowRightwards = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendFlowRightwards = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendFlowRightwards = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowRightwards of " << (zone == 10 ? "all" : std::to_string(zone))
@@ -1600,22 +1655,22 @@ namespace mc
 		}
 
 
-		void handleZoneFlowUpwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneFlowUpwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendFlowUpwards = (dmy != 0);
-				ref->zoneCommands[1].sendFlowUpwards = (dmy != 0);
-				ref->zoneCommands[2].sendFlowUpwards = (dmy != 0);
-				ref->zoneCommands[3].sendFlowUpwards = (dmy != 0);
-				ref->zoneCommands[4].sendFlowUpwards = (dmy != 0);
-				ref->zoneCommands[5].sendFlowUpwards = (dmy != 0);
+				ref->zone[0].sendFlowUpwards = (dmy != 0);
+				ref->zone[1].sendFlowUpwards = (dmy != 0);
+				ref->zone[2].sendFlowUpwards = (dmy != 0);
+				ref->zone[3].sendFlowUpwards = (dmy != 0);
+				ref->zone[4].sendFlowUpwards = (dmy != 0);
+				ref->zone[5].sendFlowUpwards = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendFlowUpwards = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendFlowUpwards = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowUpwards of " << (zone == 10 ? "all" : std::to_string(zone))
@@ -1624,22 +1679,22 @@ namespace mc
 		}
 
 
-		void handleZoneFlowDownwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+		void handleZoneFlowDownwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
 		{
 			int32_t dmy;
 			args >> dmy >> osc::EndMessage;
 
 			if (zone == 10)
 			{
-				ref->zoneCommands[0].sendFlowDownwards = (dmy != 0);
-				ref->zoneCommands[1].sendFlowDownwards = (dmy != 0);
-				ref->zoneCommands[2].sendFlowDownwards = (dmy != 0);
-				ref->zoneCommands[3].sendFlowDownwards = (dmy != 0);
-				ref->zoneCommands[4].sendFlowDownwards = (dmy != 0);
-				ref->zoneCommands[5].sendFlowDownwards = (dmy != 0);
+				ref->zone[0].sendFlowDownwards = (dmy != 0);
+				ref->zone[1].sendFlowDownwards = (dmy != 0);
+				ref->zone[2].sendFlowDownwards = (dmy != 0);
+				ref->zone[3].sendFlowDownwards = (dmy != 0);
+				ref->zone[4].sendFlowDownwards = (dmy != 0);
+				ref->zone[5].sendFlowDownwards = (dmy != 0);
 			}
-			else
-				ref->zoneCommands[zone - 1].sendFlowDownwards = (dmy != 0);
+			else if (zone == 0 || zone == 1 || zone == 2 || zone == 3 || zone == 4 || zone == 5)
+				ref->zone[zone].sendFlowDownwards = (dmy != 0);
 
 #ifdef MC_RECEIVING_VERBOSE
 			std::cout << "-- sendFlowDownwards of " << (zone == 10 ? "all" : std::to_string(zone))

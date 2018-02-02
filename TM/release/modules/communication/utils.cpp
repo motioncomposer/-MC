@@ -56,40 +56,35 @@ namespace mc
 		}
 
 
-		bool readNetworkConfiguration(NetworkConfiguration& netConfig, const std::string& filename, const std::string& key)
-		{
-			cv::FileStorage fs;
-			fs.open(filename, cv::FileStorage::READ);
-
-			if (!fs.isOpened())
-			{
-				std::cout << "-- could not open file: " << filename << std::endl;
-				return false;
-			}
-
-			fs[key] >> netConfig;
-			fs.release();
-
-			return true;
-		}
-
-
 		bool saveNetworkConfiguration(const NetworkConfiguration& netConfig, const std::string& filename, const std::string& key)
 		{
-			cv::FileStorage fs;
-			fs.open(filename, cv::FileStorage::WRITE);
+			cv::FileStorage fs(filename, cv::FileStorage::WRITE);
 
-			if (!fs.isOpened())
+			if (fs.isOpened())
 			{
-				std::cout << "-- could not open file: " << filename << std::endl;
-				return false;
+				fs << key << netConfig;
+				return true;
 			}
 
-			fs << key << netConfig;
-			fs.release();
-
-			return true;
+			return false;
 		}
+
+
+		bool readNetworkConfiguration(NetworkConfiguration& netConfig, const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::READ);
+
+			if (fs.isOpened())
+			{
+				fs[key] >> netConfig;
+				return true;
+			}
+
+			return false;
+		}
+
+
+
 
 
 		// ==========================================================================================================================

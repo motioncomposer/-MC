@@ -44,31 +44,28 @@ namespace mc
 		// ==========================================================================================================================
 
 
-		void handleInitRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t);
+		void handleInitRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t);
 
 
-		void handleStopRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t);
+		void handleStopRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t);
 
 
-		void handlePlayerTrackingRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerBlobRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerBlobRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handleZoneTrackingRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handlePlayerResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handleZoneBlobRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneBlobRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 
+		void handleZoneTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 
-		void handlePlayerResetRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
-
-		void handleZoneResetRequest(mc::command::CMCommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
-
-
+		void handleZoneResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 
 		// ==========================================================================================================================
@@ -83,7 +80,7 @@ namespace mc
 
 		public:
 
-			ControlModuleListener(const mc::utils::MessagePattern& list, mc::command::CMCommandBundle* ref) : list(list),
+			ControlModuleListener(const mc::utils::MessagePattern& list, mc::structures::ControlBundle* ref) : list(list),
 				controllerRef(ref), error(0)
 			{
 
@@ -98,8 +95,8 @@ namespace mc
 				handlers.push_back(std::bind(handlePlayerBlobRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 				handlers.push_back(std::bind(handleZoneTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 				handlers.push_back(std::bind(handleZoneBlobRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				//handlers.push_back(std::bind(handlePlayerResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				//handlers.push_back(std::bind(handleZoneResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handlePlayerResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handleZoneResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 
 			}
 
@@ -118,7 +115,7 @@ namespace mc
 
 			std::vector<std::function<void(osc::ReceivedMessageArgumentStream, size_t)>> handlers;
 
-			mc::command::CMCommandBundle* controllerRef;
+			mc::structures::ControlBundle* controllerRef;
 		};
 
 
@@ -133,7 +130,7 @@ namespace mc
 		{
 		public:
 
-			ControlModuleReceiver(const mc::utils::NetworkConfiguration& config, const mc::utils::MessagePattern& list, mc::command::CMCommandBundle* ref) : listener(list, ref),
+			ControlModuleReceiver(const mc::utils::NetworkConfiguration& config, const mc::utils::MessagePattern& list, mc::structures::ControlBundle* ref) : listener(list, ref),
 				port(std::stoi(config.portCM2TM))
 			{
 				workerThread = std::thread(&ControlModuleReceiver::receiveFromNetwork, this);
@@ -163,202 +160,202 @@ namespace mc
 		// ==========================================================================================================================
 
 
-		void handlePlayerDiscreteHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerDiscreteHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerDiscreteHeadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteHeadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerDiscreteLegLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteLegLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerDiscreteLegRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteLegRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerDiscreteBodyUpperRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteBodyUpperRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerDiscreteBodyLowerRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteBodyLowerRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerDiscreteBodyLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteBodyLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerDiscreteBodyRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerDiscreteBodyRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerNormalHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalHeadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalHeadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalLegLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalLegLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalLegRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalLegRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalBodyUpperRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalBodyUpperRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalBodyLowerRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalBodyLowerRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalBodyLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalBodyLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerNormalBodyRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerNormalBodyRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerPeakRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPeakRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerFlowLeftwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowLeftwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowLeftwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowLeftwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowRightwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowRightwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowRightwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowRightwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowUpwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowUpwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowUpwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowUpwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowDownwardsLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowDownwardsLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerFlowDownwardsRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerFlowDownwardsRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerLocationReadyRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerLocationReadyRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerLocationPresentRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerLocationPresentRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerLocationCenterXRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerLocationCenterXRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerLocationCenterZRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerLocationCenterZRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerLocationOutOfRangeRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerLocationOutOfRangeRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerPositionHeightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionHeightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionHeightLevelRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionHeightLevelRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionVerticalHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionVerticalHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionVerticalHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionVerticalHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionSideHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionSideHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionSideHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionSideHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionSideFootLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionSideFootLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionSideFootRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionSideFootRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionFrontHandLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionFrontHandLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionFrontHandRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionFrontHandRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionFrontFootLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionFrontFootLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionFrontFootRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionFrontFootRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerPositionWidthRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerPositionWidthRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handlePlayerGestureHitOverheadRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitOverheadRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitSideLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitSideLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitSideRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitSideRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitDownLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitDownLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitDownRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitDownRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitForwardLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitForwardLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureHitForwardRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureHitForwardRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureKickSideLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureKickSideLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureKickSideRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureKickSideRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureKickForwardLeftRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureKickForwardLeftRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureKickForwardRightRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureKickForwardRightRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureDoubleArmSideRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureDoubleArmSideRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureDoubleArmSideCloseRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureDoubleArmSideCloseRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureJumpRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureJumpRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 		
 
-		void handlePlayerGestureClapRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+		void handlePlayerGestureClapRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
 
 
-		void handleZoneDiscreteRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneDiscreteRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 
-		void handleZoneNormalRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneNormalRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 		
 		
-		void handleZoneFlowLeftwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneFlowLeftwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 		
 		
-		void handleZoneFlowRightwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneFlowRightwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 		
 		
-		void handleZoneFlowUpwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneFlowUpwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 		
 		
-		void handleZoneFlowDownwardsRequest(mc::command::MECommandBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handleZoneFlowDownwardsRequest(mc::structures::MusicBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 		
 		// ==========================================================================================================================
@@ -373,7 +370,7 @@ namespace mc
 
 		public:
 
-			MusicEnvironmentListener(const mc::utils::MessagePattern& list, mc::command::MECommandBundle* ref) : list(list),
+			MusicEnvironmentListener(const mc::utils::MessagePattern& list, mc::structures::MusicBundle* ref) : list(list),
 				controllerRef(ref),
 				error(0)
 			{
@@ -467,7 +464,7 @@ namespace mc
 
 			std::vector<std::function<void(osc::ReceivedMessageArgumentStream, size_t)>> handlers;
 
-			mc::command::MECommandBundle* controllerRef;
+			mc::structures::MusicBundle* controllerRef;
 		};
 
 
@@ -482,7 +479,7 @@ namespace mc
 		{
 		public:
 
-			MusicEnvironmentReceiver(const mc::utils::NetworkConfiguration& config, const mc::utils::MessagePattern& list, mc::command::MECommandBundle* ref) : listener(list, ref),
+			MusicEnvironmentReceiver(const mc::utils::NetworkConfiguration& config, const mc::utils::MessagePattern& list, mc::structures::MusicBundle* ref) : listener(list, ref),
 				port(std::stoi(config.portME2TM))
 			{
 				workerThread = std::thread(&MusicEnvironmentReceiver::receiveFromNetwork, this);

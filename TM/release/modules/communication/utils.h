@@ -3,7 +3,7 @@
 // this is only because of the verbose read and write operations ...
 #include <iostream>
 
-#include "opencv2/core/core.hpp"
+#include "opencv2\core.hpp"
 
 #include <string>
 #include <vector>
@@ -64,11 +64,11 @@ namespace mc
 
 		void write(cv::FileStorage& fs, const std::string&, const NetworkConfiguration& netConfig);
 
-		bool readNetworkConfiguration(NetworkConfiguration& netConfig,
-			const std::string& filename, const std::string& key);
-
 		bool saveNetworkConfiguration(const NetworkConfiguration& netConfig,
 			const std::string& filename, const std::string& key);
+
+		bool readNetworkConfiguration(NetworkConfiguration& netConfig,
+			const std::string& filename, const std::string& key);		
 
 
 		// ==========================================================================================================================
