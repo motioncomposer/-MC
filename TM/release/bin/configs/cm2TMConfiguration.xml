@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<CM2TM>
+  <item000>/set/initialize</item000>
+  <item001>/set/stop</item001>
+  <item002>/set/player/#/blob</item002>
+  <item003>/set/player/#/tracking</item003>
+  <item004>/set/player/#/reset</item004>
+  <item005>/set/zone/#/blob</item005>
+  <item006>/set/zone/#/tracking</item006>
+  <item007>/set/zone/#/reset</item007></CM2TM>
+</opencv_storage>

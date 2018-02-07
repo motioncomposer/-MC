@@ -28,6 +28,7 @@ namespace mc
 		//
 		// ==========================================================================================================================
 
+		// for what do I need this structure?
 
 		enum class ImageEncodings : int
 		{
@@ -52,17 +53,33 @@ namespace mc
 
 		struct VideoStreamParameter
 		{
+			int port;
+
 			int period;
 			int width;
 			int height;
 
 			std::string encoding;
 
-			VideoStreamParameter(int period = 100, int width = 480, int height = 360, int encoding = 0) : period(period), width(width), height(height),
+			VideoStreamParameter(int port = 50000, int period = 100, int width = 480, int height = 360, int encoding = 0) : port(port), period(period), width(width), height(height),
 				encoding(getEncoding(static_cast<ImageEncodings>(encoding)))
 			{}
 
+			void read(const cv::FileNode& fn);
+
+			void write(cv::FileStorage& fs) const;
 		};
+
+
+		void read(const cv::FileNode& fn, VideoStreamParameter& streamPara, const VideoStreamParameter& default = VideoStreamParameter());
+
+		void write(cv::FileStorage& fs, const std::string&, const VideoStreamParameter& streamPara);
+
+		bool saveVideoStreamParameter(const VideoStreamParameter& streamPara,
+			const std::string& filename, const std::string& key);
+
+		bool readVideoStreamParameter(VideoStreamParameter& streamPara,
+			const std::string& filename, const std::string& key);
 
 
 		// ==========================================================================================================================
@@ -78,8 +95,8 @@ namespace mc
 		{
 		public:
 
-			VideoStreamServer(const std::string& port) : port(port), ptr_io_service(new boost::asio::io_service),
-				ptr_acceptor(new boost::asio::ip::tcp::acceptor(*ptr_io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), std::stoi(port)))),
+			VideoStreamServer(const VideoStreamParameter& param) : parameter(param), ptr_io_service(new boost::asio::io_service),
+				ptr_acceptor(new boost::asio::ip::tcp::acceptor(*ptr_io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), param.port))),
 				ptr_socket(nullptr), ptr_timer(nullptr)
 			{
 				server_thread = std::thread(&VideoStreamServer::server_function, this);
@@ -352,6 +369,8 @@ namespace mc
 
 		struct ImageAndContoursStreamParameter
 		{
+			int port;
+
 			int period;
 			int width;
 			int height;
@@ -359,11 +378,25 @@ namespace mc
 
 			std::string encoding;
 
-			ImageAndContoursStreamParameter(int period = 100, int width = 480, int height = 360, int reduce = 5, int encoding = 0) : period(period),
+			ImageAndContoursStreamParameter(int port = 50000, int period = 100, int width = 480, int height = 360, int reduce = 5, int encoding = 0) : port(port), period(period),
 				width(width), height(height), reduce(reduce), encoding(getEncoding(static_cast<ImageEncodings>(encoding)))
 			{}
 
+			void read(const cv::FileNode& fn);
+
+			void write(cv::FileStorage& fs) const;
 		};
+
+
+		void read(const cv::FileNode& fn, ImageAndContoursStreamParameter& streamPara, const ImageAndContoursStreamParameter& default = ImageAndContoursStreamParameter());
+
+		void write(cv::FileStorage& fs, const std::string&, const ImageAndContoursStreamParameter& streamPara);
+
+		bool saveImageAndContoursStreamParameter(const ImageAndContoursStreamParameter& streamPara,
+			const std::string& filename, const std::string& key);
+
+		bool readImageAndContoursStreamParameter(ImageAndContoursStreamParameter& streamPara,
+			const std::string& filename, const std::string& key);
 
 
 		// ==========================================================================================================================
@@ -373,12 +406,13 @@ namespace mc
 		// ==========================================================================================================================
 
 
+		// we can make this more generic ...
 		class ImageAndContoursStreamServer
 		{
 		public:
 
-			ImageAndContoursStreamServer(const std::string& port) : port(port), ptr_io_service(new boost::asio::io_service),
-				ptr_acceptor(new boost::asio::ip::tcp::acceptor(*ptr_io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), std::stoi(port)))),
+			ImageAndContoursStreamServer(const ImageAndContoursStreamParameter& param) : parameter(param), ptr_io_service(new boost::asio::io_service),
+				ptr_acceptor(new boost::asio::ip::tcp::acceptor(*ptr_io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), param.port))),
 				ptr_socket(nullptr), ptr_timer(nullptr)
 			{
 				server_thread = std::thread(&ImageAndContoursStreamServer::server_function, this);
@@ -406,7 +440,7 @@ namespace mc
 			std::shared_ptr<boost::asio::ip::tcp::acceptor> ptr_acceptor;
 			std::shared_ptr<boost::asio::ip::tcp::socket> ptr_socket;
 
-			// so this is basicaly the send buffer we write out data on ...
+			// so this is basically the send buffer we write out data on ...
 			// we can put this into a single object ...
 			std::mutex mtx;
 			std::vector<uchar> buffer;

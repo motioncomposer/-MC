@@ -6,219 +6,102 @@ namespace mc
 
 	namespace blob
 	{
-		bool BlobFinder::apply(const cv::Mat& disp)
+
+		// ==========================================================================================================================
+		//
+		// blob finder parameter
+		//
+		// ==========================================================================================================================
+
+
+		void BlobFinderParameter::read(const cv::FileNode& fn)
 		{
+			fn["floorLvl"] >> floorLvl;
+			fn["sideOffset"] >> sideOffset;
+			fn["erosionSizeX"] >> erosionSizeX;
+			fn["erosionSizeY"] >> erosionSizeY;
+			fn["minDistance"] >> minDistance;
+			fn["maxDistance"] >> maxDistance;
+			fn["maxDistanceOffsetBack"] >> maxDistanceOffsetBack;
+			fn["maxDistanceOffsetFront"] >> maxDistanceOffsetFront;
+			fn["minTrackSize"] >> minTrackSize;
+			fn["maxSpeckleSize"] >> maxSpeckleSize;
+			fn["maxPointError"] >> maxPointError;
+			fn["maxHandDistance"] >> maxHandDistance;
+			fn["maxNoMeasurement"] >> maxNoMeasurement;
+			fn["maxTrackerCount"] >> maxTrackerCount;
+			fn["varianceQ"] >> varianceQ;
+			fn["varianceR"] >> varianceR;
+		}
 
-			if (disp.empty() || disp.type() != CV_16SC1)
-				return false;
 
-			cv::inRange(disp, parameter.minDisparity, parameter.maxDisparity, mask);
-			cv::morphologyEx(mask, mask, cv::MORPH_ERODE,
-				cv::getStructuringElement(cv::MorphShapes::MORPH_ELLIPSE,
-				{ parameter.erosionSizeX, parameter.erosionSizeY }));
+		void BlobFinderParameter::write(cv::FileStorage& fs) const
+		{
+			fs << "{"
+				<< "floorLvl" << floorLvl
+				<< "sideOffset" << sideOffset
+				<< "erosionSizeX" << erosionSizeX
+				<< "erosionSizeY" << erosionSizeY
+				<< "minDistance" << minDistance
+				<< "maxDistance" << maxDistance
+				<< "maxDistanceOffsetBack" << maxDistanceOffsetBack
+				<< "maxDistanceOffsetFront" << maxDistanceOffsetFront
+				<< "minTrackSize" << minTrackSize
+				<< "maxSpeckleSize" << maxSpeckleSize
+				<< "maxPointError" << maxPointError
+				<< "maxHandDistance" << maxHandDistance
+				<< "maxNoMeasurement" << maxNoMeasurement
+				<< "maxTrackerCount" << maxTrackerCount
+				<< "varianceQ" << varianceQ
+				<< "varianceR" << varianceR
+				<< "}";
+		}
 
 
-			const uchar* ptr = mask.ptr<uchar>(parameter.floorLvl);
-			std::vector<uchar> floor(ptr, ptr + mask.cols);
-			int start(0), end(mask.cols - 1);
-			for (auto&& c = 1; c < floor.size(); ++c)
+		void read(const cv::FileNode& fn, BlobFinderParameter& blobFinderPara, const BlobFinderParameter& default)
+		{
+			if (fn.empty())
+				blobFinderPara = default;
+			else
+				blobFinderPara.read(fn);
+		}
+
+
+		void write(cv::FileStorage& fs, const std::string&, const BlobFinderParameter& blobFinderPara)
+		{
+			blobFinderPara.write(fs);
+		}
+
+
+		bool saveBlobFinderParameter(const BlobFinderParameter& blobFinderPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+
+			if (fs.isOpened())
 			{
-				if (floor[c] != 0 && floor[c - 1] == 0 || c == floor.size() - 1)
-				{
-					end = c - parameter.sideOffset;
-					if (end - start > 0)
-						mask(cv::Rect(cv::Point(start, parameter.floorLvl), cv::Point(end, mask.rows - 1))).setTo(0);
-				}
-				else if (floor[c] == 0 && floor[c - 1] != 0)
-					start = c + parameter.sideOffset;
+				fs << key << blobFinderPara;
+				return true;
 			}
 
-			contours.clear();
-			hierarchy.clear();
-			cv::findContours(mask, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+			return false;
+		}
 
-			rois.clear();
-			for (auto& it : contours)
-				rois.push_back(cv::boundingRect(it));
 
-			mask.setTo(0);
+		bool readBlobFinderParameter(BlobFinderParameter& blobFinderPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::READ);
 
-			if (!rois.empty())
+			if (fs.isOpened())
 			{
-				master[0].index = -1;
-				master[1].index = -1;
-
-				master[0].size = parameter.minMasterSize;
-				master[1].size = parameter.minMasterSize;
-
-				for (auto&& c = 0; c < rois.size(); ++c)
-				{
-					if (fs::core::getRoiArea(rois[c]) > master[1].size)
-					{
-						master[1].index = c;
-						master[1].size = rois[c].area();
-					}
-
-					if (master[1].size > master[0].size)
-						std::swap(master[0], master[1]);
-				}
-
-				one_detected = !(master[0].index == -1);
-				two_detected = !(master[1].index == -1);
-
-
-				if (two_detected)
-				{
-					master[0].searchRegion = rois[master[0].index];
-					master[0].searchRegion -= cv::Size(0, master[0].searchRegion.height >> 1);
-					master[0].searchRegion -= cv::Point(master[0].searchRegion.width >> 1, 0);
-					master[0].searchRegion += cv::Size(master[0].searchRegion.width, 0);
-					master[0].blobDisp = fs::misc::getMedianDisparityOfContour(disp, contours[master[0].index], rois[master[0].index]);
-					master[0].operatingRoi = rois[master[0].index];
-
-					master[1].searchRegion = rois[master[1].index];
-					master[1].searchRegion -= cv::Size(0, master[1].searchRegion.height >> 1);
-					master[1].searchRegion -= cv::Point(master[1].searchRegion.width >> 1, 0);
-					master[1].searchRegion += cv::Size(master[1].searchRegion.width, 0);
-					master[1].blobDisp = fs::misc::getMedianDisparityOfContour(disp, contours[master[1].index], rois[master[1].index]);
-					master[1].operatingRoi = rois[master[1].index];
-
-					blob_color[0] = (master[0].blobDisp < master[1].blobDisp ? 200 : 255);
-					blob_color[1] = (master[0].blobDisp < master[1].blobDisp ? 255 : 200);
-
-					drawContours(mask, contours, master[0].index, blob_color[0], CV_FILLED);
-					drawContours(mask, contours, master[1].index, blob_color[1], CV_FILLED);
-				}
-				else if (one_detected)
-				{
-					master[0].searchRegion = rois[master[0].index];
-					master[0].searchRegion -= cv::Size(0, master[0].searchRegion.height >> 1);
-					master[0].searchRegion -= cv::Point(master[0].searchRegion.width >> 1, 0);
-					master[0].searchRegion += cv::Size(master[0].searchRegion.width, 0);
-					master[0].blobDisp = fs::misc::getMedianDisparityOfContour(disp, contours[master[0].index], rois[master[0].index]);
-					master[0].operatingRoi = rois[master[0].index];
-
-					blob_color[0] = 255;
-
-					drawContours(mask, contours, master[0].index, blob_color[0], CV_FILLED);
-				}
-
-
-				for (auto&& c = 0; c < rois.size(); ++c)
-				{
-					if (master[0].index == c || master[1].index == c)
-						continue;
-
-					if (fs::core::getRoiArea(rois[c]) < parameter.minSlaveSize)
-						continue;
-
-					// we can also use the ratio
-
-					if (fs::core::getRoiArea(rois[c]) > parameter.minMasterSize)
-						continue;
-
-					candidate_for_blob[0] = one_detected && fs::core::isInRoi(master[0].searchRegion, rois[c]);
-					candidate_for_blob[1] = two_detected && fs::core::isInRoi(master[1].searchRegion, rois[c]);
-
-					if (!(candidate_for_blob[0] || candidate_for_blob[1]))
-						continue;
-
-					dmyDisp = fs::misc::getMedianDisparityOfContour(disp, contours[c], rois[c]);
-
-					candidate_for_blob[0] = candidate_for_blob[0] && fs::core::inOpenInterval(dmyDisp, master[0].blobDisp - parameter.maxDispOffsetBack, master[0].blobDisp + parameter.maxDispOffsetFront);
-					candidate_for_blob[1] = candidate_for_blob[1] && fs::core::inOpenInterval(dmyDisp, master[1].blobDisp - parameter.maxDispOffsetBack, master[1].blobDisp + parameter.maxDispOffsetFront);
-
-
-					if (candidate_for_blob[0] && candidate_for_blob[1])
-					{
-						dmyDistanceX[0] = std::abs(fs::core::getRoiCenter(rois[c]).x - fs::core::getRoiCenter(rois[master[0].index]).x);
-						dmyDistanceX[1] = std::abs(fs::core::getRoiCenter(rois[c]).x - fs::core::getRoiCenter(rois[master[1].index]).x);
-
-						if (dmyDistanceX[0] < dmyDistanceX[1])
-						{
-							master[0].operatingRoi |= rois[c];
-							drawContours(mask, contours, c, blob_color[0], CV_FILLED);
-						}
-
-						if (dmyDistanceX[1] < dmyDistanceX[0])
-						{
-							master[1].operatingRoi |= rois[c];
-							drawContours(mask, contours, c, blob_color[1], CV_FILLED);
-						}
-					}
-					else if (candidate_for_blob[0])
-					{
-						master[0].operatingRoi |= rois[c];
-						drawContours(mask, contours, c, blob_color[0], CV_FILLED);
-					}
-					else if (candidate_for_blob[1])
-					{
-						master[1].operatingRoi |= rois[c];
-						drawContours(mask, contours, c, blob_color[1], CV_FILLED);
-					}
-
-				}
+				fs[key] >> blobFinderPara;
+				return true;
 			}
-
-			// actually we need here some kind of mapping or swapping so that the order of the rois are not twitching
-			// may be we can also create here two different masks for player one and player two if needed
-
-			// and we should also apply some filtering --> kalman? --> may be to slow, first, we need to test an own implementation (based on Eigen)
-
-			return true;
+			
+			return false;
 		}
 
-
-		bool BlobFinder::draw(cv::Mat& image, const cv::Scalar& color_one, const cv::Scalar& color_two)
-		{
-			if (image.empty() || image.type() != CV_8UC3)
-				return false;
-
-			if (two_detected)
-			{
-				cv::rectangle(image, master[0].operatingRoi, color_one, 2);
-				cv::rectangle(image, master[1].operatingRoi, color_two, 2);
-			}
-			else if (one_detected)
-				cv::rectangle(image, master[0].operatingRoi, color_one, 2);
-
-			return true;
-		}
-
-
-		const BlobFinderParameter& BlobFinder::getParameter() const
-		{
-			return parameter;
-		}
-
-
-		BlobFinderParameter& BlobFinder::getParameter()
-		{
-			return parameter;
-		}
-
-
-		const cv::Mat& BlobFinder::getMask() const
-		{
-			return mask;
-		}
-	}
-}
-
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-#ifdef MC_COMPILE_WITH_NEW_DRAFT
-
-namespace mc_test
-{
-
-	namespace blob
-	{
 
 		// ==========================================================================================================================
 		//
@@ -307,7 +190,7 @@ namespace mc_test
 		// ==========================================================================================================================
 
 
-		int32_t BlobTracker::instanceCounter = 0;
+		uint32_t BlobTracker::instanceCounter = 0;
 
 
 		float BlobTracker::match(const BlobResult& result, const BlobFinderParameter& parameter, const fs::core::BasicStereoValues& values) const
@@ -551,7 +434,7 @@ namespace mc_test
 		}
 
 
-		const std::vector<int>& BlobTracker::getAssociatedBlobs() const
+		const std::vector<uint32_t>& BlobTracker::getAssociatedBlobs() const
 		{
 			return associatedBlobs;
 		}
@@ -594,7 +477,7 @@ namespace mc_test
 		// ==========================================================================================================================
 
 
-		bool BlobFinder::apply(const cv::Mat& disp, const fs::core::BasicStereoValues& values)
+		bool BlobFinder::apply(const cv::Mat& disp)
 		{
 			if (disp.empty() || disp.type() != CV_16SC1)
 				return false;
@@ -632,7 +515,7 @@ namespace mc_test
 				if (minScore != std::numeric_limits<float>::max())
 					trackers[trackerID].collect(result, ordering[c]);
 				else if (result.area > parameter.minTrackSize)
-					trackers.push_back(mc_test::blob::BlobTracker(result, ordering[c], parameter.varianceQ, parameter.varianceR));
+					trackers.push_back(BlobTracker(result, ordering[c], parameter.varianceQ, parameter.varianceR));
 
 			}
 
@@ -684,6 +567,18 @@ namespace mc_test
 		}
 
 
+		void BlobFinder::plotTrackerID(cv::Mat& show) const
+		{
+			show = -1 * cv::Mat::ones(mask.size(), CV_32SC1);
+			for (auto&& c = 0; c < trackers.size(); c++)
+			{
+				cv::Rect area = trackers[c].getCorrectedROI();
+				for (auto& it : trackers[c].getAssociatedBlobs())
+					drawContours(show(area), contours, it, trackers[c].getBlobTrackerID(), CV_FILLED, 8, hierarchy, 2147483647, -area.tl());
+			}
+		}
+
+
 		bool BlobFinder::printBlobs(cv::Mat& show, const std::vector<cv::Scalar>& colors) const
 		{
 			if (show.empty() || show.type() != CV_8UC3)
@@ -722,9 +617,9 @@ namespace mc_test
 		}
 
 
-		BlobFinderParameter& BlobFinder::getParameter()
+		const DisparityThresholds& BlobFinder::getThresholds() const
 		{
-			return parameter;
+			return thresholds;
 		}
 
 
@@ -737,7 +632,145 @@ namespace mc_test
 		size_t BlobFinder::getTrackerCount() const
 		{
 			return trackers.size();
-		}		
+		}
+
+
+		void BlobFinder::adjustDistanceRange(float minDistance, float maxDistance)
+		{
+			if (minDistance > maxDistance)
+				std::swap(minDistance, maxDistance);
+
+			parameter.minDistance = minDistance;
+			parameter.maxDistance = maxDistance;
+
+			thresholds.minDisparity = static_cast<short>(16 * values.focalLength * values.baseLineLength / parameter.maxDistance);
+			thresholds.maxDisparity = 16 * values.focalLength * values.baseLineLength / parameter.minDistance;
+		}
+
+
+		void BlobFinder::adjustFloorLevel(int floorLvl)
+		{
+			parameter.floorLvl = floorLvl;
+		}
+
+
+		bool BlobFinder::draw(cv::Mat& image, const mc::structures::PlayerSelection& selection,
+			const cv::Scalar& color_one, const cv::Scalar& color_two, const cv::Scalar& color_inactive) const
+		{
+			if (image.empty() || image.type() != CV_8UC3)
+				return false;
+
+			for (auto& it : trackers)
+			{
+				if (it.getBlobTrackerID() == selection[0])
+					cv::rectangle(image, it.getCorrectedROI(), color_one, 2);
+				else if (it.getBlobTrackerID() == selection[1])
+					cv::rectangle(image, it.getCorrectedROI(), color_two, 2);
+				else
+					cv::rectangle(image, it.getCorrectedROI(), color_inactive, 2);
+			}
+
+			return true;
+		}
+
+
+		bool BlobFinder::printPlayers(cv::Mat& show, const mc::structures::PlayerSelection& selection,
+			const cv::Scalar& color_one, const cv::Scalar& color_two, const cv::Scalar& color_inactive) const
+		{
+			if (show.empty() || show.type() != CV_8UC3)
+				return false;
+
+			for (auto&& c = 0; c < trackers.size(); c++)
+			{
+				if (trackers[c].getBlobTrackerID() == selection[0])
+				{
+					cv::Rect area = trackers[c].getCorrectedROI();
+					for (auto& it : trackers[c].getAssociatedBlobs())
+						drawContours(show(area), contours, it, color_one, CV_FILLED, 8, hierarchy, 2147483647, -area.tl());
+				}
+				else if (trackers[c].getBlobTrackerID() == selection[1])
+				{
+					cv::Rect area = trackers[c].getCorrectedROI();
+					for (auto& it : trackers[c].getAssociatedBlobs())
+						drawContours(show(area), contours, it, color_two, CV_FILLED, 8, hierarchy, 2147483647, -area.tl());
+				}
+				else
+				{
+					cv::Rect area = trackers[c].getCorrectedROI();
+					for (auto& it : trackers[c].getAssociatedBlobs())
+						drawContours(show(area), contours, it, color_inactive, CV_FILLED, 8, hierarchy, 2147483647, -area.tl());
+				}
+
+				
+			}
+
+			return true;
+		}
+
+
+		void BlobFinder::updateSharedData(mc::structures::PlayerSelection& selection, mc::structures::SharedData& data) const
+		{
+
+			data.environment.maxDistance = parameter.maxDistance;
+			data.environment.minDistance = parameter.minDistance;
+			data.environment.floorLvl = parameter.floorLvl;
+
+			data.trackerData[0] = mc::structures::TrackerData();
+			data.trackerData[1] = mc::structures::TrackerData();
+
+
+			if (selection[0] >= 0)
+			{
+				bool found(false);
+				for (auto& it : trackers)
+				{
+					if (it.getBlobTrackerID() == selection[0])
+					{
+						data.trackerData[0].tl = it.getCorrectedResult().tl;
+						data.trackerData[0].br = it.getCorrectedResult().br;
+						data.trackerData[0].cp = it.getCorrectedResult().cp;
+						data.trackerData[0].distance = it.getCorrectedResult().distance;
+						data.trackerData[0].contourIdx = it.getAssociatedBlobs();
+						data.trackerData[0].metricTL = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().tl, it.getCorrectedResult().distance);
+						data.trackerData[0].metricBR = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().br, it.getCorrectedResult().distance);
+						data.trackerData[0].metricCP = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().cp, it.getCorrectedResult().distance);
+
+						found = true;
+						break;
+					}
+				}
+
+				if (!found)
+					selection[0] = -1;
+			}
+			
+
+			if (selection[1] >= 0)
+			{
+				bool found(false);
+				for (auto& it : trackers)
+				{
+					if (it.getBlobTrackerID() == selection[1])
+					{
+						data.trackerData[1].tl = it.getCorrectedResult().tl;
+						data.trackerData[1].br = it.getCorrectedResult().br;
+						data.trackerData[1].cp = it.getCorrectedResult().cp;
+						data.trackerData[1].distance = it.getCorrectedResult().distance;
+						data.trackerData[1].contourIdx = it.getAssociatedBlobs();
+						data.trackerData[1].metricTL = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().tl, it.getCorrectedResult().distance);
+						data.trackerData[1].metricBR = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().br, it.getCorrectedResult().distance);
+						data.trackerData[1].metricCP = fs::core::backProjectionFromDepth(values, it.getCorrectedResult().cp, it.getCorrectedResult().distance);
+
+						found = true;
+						break;
+					}
+				}
+
+				if (!found)
+					selection[1] = -1;
+			}
+
+		}
 
 
 #ifdef MC_AUXILIARY_FUNCTIONS
@@ -787,7 +820,7 @@ namespace mc_test
 
 		void BlobFinder::findBlobs(const cv::Mat& disp)
 		{
-			cv::inRange(disp, parameter.minDisparity, parameter.maxDisparity, mask);
+			cv::inRange(disp, thresholds.minDisparity, thresholds.maxDisparity, mask);
 			cv::morphologyEx(mask, mask, cv::MORPH_ERODE,
 				cv::getStructuringElement(cv::MorphShapes::MORPH_ELLIPSE,
 				{ parameter.erosionSizeX, parameter.erosionSizeY }));
@@ -882,5 +915,3 @@ namespace mc_test
 
 	}
 }
-
-#endif // MC_COMPILE_WITH_NEW_DRAFT

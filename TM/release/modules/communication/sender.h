@@ -47,34 +47,13 @@ namespace mc
 				findPlaceHolderPosition(list.pattern, position, mc::defines::placeholder);
 			}
 
-			// here we don't pass somehow the CMCommand ... but we can create a state result containing the current state of the tracking module
-			// starting, loaded, initializing, ready, error + error code ...
-			// we don't need to pass a CMCommandBundle as the CM can't request a specific sending behaviour
-			// we can make this a send state function --> states: loaded, ready
-			
-			//
 			void sendLoaded();
 
 			void sendReady();
 
+			void sendError(int error);
 
-			//void sendState(int state_code);
-
-			// may be we can hand in back the MCCommandBundle ... we may be should rename this in order to better represent the
-			// communication structure ...
-
-			// this is not used yet ...
-			// we need to define a error code list ...
-			void sendError(int err_code);
-
-			// actually we can directly merge th two abouve functions ...
-			// we can create the interface similar to MESender
-
-			//void send();
-
-
-			// normally TrackingModule does not communicate to controll module ... only in case of error
-
+			void sendStopped();
 
 		private:
 
@@ -97,8 +76,6 @@ namespace mc
 		//
 		// ==========================================================================================================================
 
-		// we are not having here a sending thread in here
-		// do we need one?
 
 		class MusicEnvironmentSender
 		{
@@ -110,7 +87,7 @@ namespace mc
 				findPlaceHolderPosition(list.pattern, position, mc::defines::placeholder);
 			}
 
-			void send(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& result);
+			void send(const mc::structures::MusicBundle& command, const mc::structures::Result& result);
 
 		private:
 
@@ -118,7 +95,7 @@ namespace mc
 
 			mc::utils::MessagePattern list;
 
-			mc::result::ResultBundle oldResult;
+			mc::structures::Result oldResult;
 
 			//
 			UdpTransmitSocket transmitSocket;
@@ -127,32 +104,25 @@ namespace mc
 			//
 
 
-			// ==========================================================================================================================
-			//
-			// internal functions used for sending the result data
-			//
-			// ==========================================================================================================================
-
-
 			bool sendOnChange(float cur, float old, float thresh);
 
 			bool sendOnDifferentFromZero(float cur, float old);
 
 
 
-			void sendPlayerResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendPlayerResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
-			void sendZoneResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendZoneResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
 
 
-			void sendPlayerActivityResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendPlayerActivityResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
-			void sendPlayerLocationResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendPlayerLocationResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
-			void sendPlayerPositionResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendPlayerPositionResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
-			void sendPlayerGestureResult(const mc::command::MECommandBundle& command, const mc::result::ResultBundle& cur, const mc::result::ResultBundle& old, size_t id);
+			void sendPlayerGestureResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
 		};
 	}

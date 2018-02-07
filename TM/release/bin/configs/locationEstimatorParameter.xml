@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<locationEstimatorParameter>
+  <offsetFront>300.</offsetFront>
+  <offsetBack>300.</offsetBack>
+  <moveThreshold>300.</moveThreshold>
+  <readyTimeMilli>1500.</readyTimeMilli></locationEstimatorParameter>
+</opencv_storage>

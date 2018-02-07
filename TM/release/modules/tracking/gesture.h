@@ -2,7 +2,7 @@
 
 #include "core.h"
 
-#include "result.h"
+#include "structures.h"
 
 #include "opencv2\core.hpp"
 #include "opencv2\imgproc.hpp"
@@ -27,13 +27,13 @@ namespace mc
 				isReadyRight(false), enableHitDownRight(false) {}
 
 			// this should not depend on flow as flow is just of priority 2
-			void apply(const mc::result::FlowResult& flowResult, mc::result::GestureResult& gestureResult);
+			void apply(const mc::structures::FlowResult& flowResult, mc::structures::GestureResult& gestureResult);
 
 			// this will become internal functions afterwards
 			// switch order so that they match the ordering in the spec
-			bool isHitDownLeft(const mc::result::FlowResult &flowResult);
+			bool isHitDownLeft(const mc::structures::FlowResult &flowResult);
 
-			bool isHitDownRight(const mc::result::FlowResult &flowResult);
+			bool isHitDownRight(const mc::structures::FlowResult &flowResult);
 
 			bool isHitSideLeft();
 			

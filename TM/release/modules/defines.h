@@ -1,14 +1,19 @@
 #pragma once
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#define PYLON_CAMERA_ACCESS
+
 #include <string>
 #include <vector>
+
 
 namespace mc
 {
 	namespace defines
 	{
-
-		// may be we put also the basic commaand and result structures here ...
 
 		// ==========================================================================================================================
 		//
@@ -17,8 +22,8 @@ namespace mc
 		// ==========================================================================================================================
 		
 
-		const size_t maxPlayer(2);
-		const size_t maxZones(6);
+		//const size_t maxPlayer(2);
+		//const size_t maxZones(6);
 
 
 		// specifies the image size the tracking module will work on
@@ -28,6 +33,9 @@ namespace mc
 		//const int operatingWidth(480);
 		//const int operatingHeight(360);
 
+		const uint32_t second = 1000;
+		const uint32_t fps = 25;
+
 
 		// ==========================================================================================================================
 		//
@@ -35,36 +43,85 @@ namespace mc
 		//
 		// ==========================================================================================================================
 
-		// test videos
 
+		// problem is ... how to detect if the reading is not working? (file opens but we cannot find the entry) in this case the default value is assigned to the
+		// read result ... may be we need some "wrong" default values ... or we create for each object a special function that returns an error object ...
+		// (like opencv's noArray())
+
+		// we have basically 2 different errors: wrong filename and wrong key
+
+		// we use the stuff with the xml because we later can merge every think into on file ...
+
+		// we can make the filenames with capital letters at the beginning ...
+
+
+
+		// test videos
 		const std::string filenameLeftVideo("ressources//left.avi");
 		const std::string filenameRightVideo("ressources//right.avi");
 
 
-		// camera list
-		const std::string filenamePylonCameras("configs//pylonList.xml");
+		//
+		// mc::tracking::TrackingCore
+		//
+
+
+		// fs::pylon::PylonAccess
+		const std::string filenamePylonList("configs//pylonList.xml");
+		const std::string keyPylonList("pylonCamera"); // we need to change this to pylonList ...
+
 		const std::string filenamePylonParameter("configs//pylonParameter.xml");
+		const std::string keyPylonParameter("pylonParameter");
 
 
+		// fs::stereo::StereoCam
 		// this can be combined to fs::stereo::StereoCamParameter
 		// this is not used yet as it is diffucult for the storing and reading
-		const std::string filenameCalibrationResults("configs//calibrationResults.xml");
+		const std::string filenameCalibrationResult("configs//calibrationResult.xml");
+		const std::string keyCalibrationResult("calibrationResult");
 		// it looks like that we don't have any keys for calibration stuff
+		// the problem is here that we don't have a class StereoCalibrationResult that contains the 2 camera parameters and the stereo configuration
+		// these 3 elements are plain written in there ...
+	
 
 		const std::string filenameMatchingParameter("configs//matchingParameter.xml");
 		const std::string keyMatchingParameter("matchingParameter");
 
-		// we can maybe combine this to fs::stereo::StereoCamParameter
 
-		// fs::stereo::MatchingParameter
-
-
-		// mc::blob::BlobFinderParameter
-
-		// mc::activity::ActivityEstimatorParameter ...
+		// mc::blob::BlobFinder
+		const std::string filenameBlobFinderParameter("configs//blobFinderParameter.xml");
+		const std::string keyBlobFinderParameter("blobFinderParameter");
 
 
-		// this can maybe also combined
+		// mc::activity::ActivityEstimator (does not exist yet)
+		const std::string filenameActivityEstimatorParameter("configs//activityEstimatorParameter.xml");
+		const std::string keyActivityEstimatorParameter("activityEstimatorParameter");
+
+
+		// mc::location::LocationEstimator (does not exist yet)
+		const std::string filenameLocationEstimatorParameter("configs//locationEstimatorParameter.xml");
+		const std::string keyLocationEstimatorParameter("locationEstimatorParameter");
+
+
+		// mc::position::PositionEstimator (does not exist yet)
+		const std::string filenamePositionEstimatorParameter("configs//positionEstimatorParameter.xml");
+		const std::string keyPositionEstimatorParameter("positionEstimatorParameter");
+
+
+		// mc::gesture::GestureDetector (exists as a depreacated version)
+		const std::string filenameGestureDetectorParameter("configs//gestureDetectorParameter.xml");
+		const std::string keyGestureDetectorParameter("gestureDetectorParameter");
+
+
+		// mc::stream::ImageAndContoursStreamServer
+		const std::string filenameStreamConfiguration("configs//streamConfiguration.xml");
+		const std::string keyStreamConfiguration("streamConfiguration");
+
+		
+		//
+		// mc::communication::CommunicationCore
+		//
+
 		
 		// mc::utils::NetworkConfiguration
 		const std::string filenameNetworkConfiguration("configs//networkConfiguration.xml");
@@ -134,6 +191,7 @@ namespace mc
 		const std::string preludeCM2TM("/set");
 		const std::vector<std::string> listCM2TM{ "/initialize",
 			"/stop",
+			"/player/#/blob",
 			"/player/#/tracking",
 			"/player/#/reset",
 			"/zone/#/blob",
@@ -217,7 +275,8 @@ namespace mc
 		const std::string preludeTM2CM("/set/TM");
 		const std::vector<std::string> listTM2CM{ "/loaded",
 			"/ready",
-			"/error"
+			"/error",
+			"/stopped"
 		};
 
 

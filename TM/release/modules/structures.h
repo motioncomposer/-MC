@@ -1,50 +1,177 @@
 #pragma once
 
+#include <array>
+#include <condition_variable>
+
 #include "opencv2\core.hpp"
-
-#include "defines.h"
-
 
 namespace mc
 {
 
-	namespace test
+	namespace structures
 	{
-		
-		// we also need to a language container ... so that we can create messages in different languages?
-
-		// we should make this an enum --> this looks kind of ugly
-		enum class TrackingModuleState
-		{
-			STOP = 2,
-			RESTART = 1,
-			READY = 0
-		};
-
-		// actually this should be a struct ...
-
-
-
-		// here we may be add some other structures as well ...
-	}
-
-
-
-
-	// ==========================================================================================================================
-	//
-	// namespace "result" contains structures to store the result values of the tracking system
-	//
-	// ==========================================================================================================================
-
-
-
-	namespace result
-	{
-
 
 
 		// ==========================================================================================================================
+		//
+		// structure that bundles the activation information provided by control module to be passed to the tracking core
+		//
+		// ==========================================================================================================================
+
+
+		using PlayerActivation = std::array<bool, 2>;
+		using ZoneActivation = std::array<bool, 6>;
+
+
+		struct Activation
+		{
+			PlayerActivation player;
+			ZoneActivation zone;
+
+			Activation() = default;
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure that bundles the selection information provided by control module to be passed to the tracking core
+		//
+		// ==========================================================================================================================
+		
+
+		using PlayerUpdateTime = std::array<std::chrono::high_resolution_clock::time_point, 2>;
+
+		using PlayerSelection = std::array<int32_t, 2>;
+		using ZoneSelection = std::array<cv::Rect, 6>;
+
+
+		struct Selection
+		{
+			PlayerUpdateTime time;
+			PlayerSelection player;
+			
+			ZoneSelection zone;
+
+			Selection() = default;
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure for exchanging some environment specific values
+		//
+		// ==========================================================================================================================
+
+
+		struct Environment
+		{
+			float maxDistance;
+			float minDistance;
+			float floorLvl;
+
+			Environment() : maxDistance(10000.f), minDistance(0.f), floorLvl(0.f)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure contains the raw result provided by the mc::blob::Blobfinder to be passed to following estimators
+		//
+		// ==========================================================================================================================
+
+
+		struct TrackerData
+		{
+
+			cv::Point2f tl;
+			cv::Point2f br;
+			cv::Point2f cp;
+
+			float distance;
+
+			cv::Vec3f metricTL;
+			cv::Vec3f metricBR;
+			cv::Vec3f metricCP;
+
+			std::vector<uint32_t> contourIdx;
+
+			TrackerData() : tl(-1.f, -1.f), br(-1.f, -1.f), cp(-1.f, -1.f), distance(0.f),
+				metricTL(-1.f, -1.f, -1.f), metricBR(-1.f, -1.f, -1.f), metricCP(-1.f, -1.f, -1.f)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure contains some location related results to be passed to the following estimators
+		//
+		// ==========================================================================================================================
+
+
+		struct LocationData
+		{
+			bool present;
+			bool ready;
+			bool outOfRange;
+
+			LocationData() : present(false), ready(false), outOfRange(false)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure contains some position related results to be passed to the following estimators
+		//
+		// ==========================================================================================================================
+
+
+		struct PositionData
+		{
+
+			float metricHeight;
+			float pixelHeight;
+
+			float topLvl;
+
+			float metricCenter;
+			float pixelCenter;
+
+			float midLvl;
+
+			// here we have to add some data for the gesture detection
+
+			PositionData() : metricHeight(0.f), pixelHeight(0.f), topLvl(0.f), metricCenter(0.f), pixelCenter(0.f), midLvl(0.f)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure bundles all shared data
+		//
+		// ==========================================================================================================================
+
+
+		struct SharedData
+		{
+			Environment environment;
+
+			std::array<TrackerData, 2> trackerData;
+			std::array<LocationData, 2> locationData;
+			std::array<PositionData, 2> positionData;
+
+			SharedData() = default;
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure stores the discrete results of a player
+		//
+		// ==========================================================================================================================
+
 
 		struct DiscreteResult
 		{
@@ -71,6 +198,10 @@ namespace mc
 		};
 
 
+		// ==========================================================================================================================
+		//
+		// structure stores the normal results of a player
+		//
 		// ==========================================================================================================================
 
 
@@ -100,6 +231,10 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure stores the flow results of a player
+		//
+		// ==========================================================================================================================
 
 
 		struct FlowResult
@@ -126,6 +261,9 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure groups the discrete, normal and flow results of a player
+		//
 		// ==========================================================================================================================
 
 
@@ -138,6 +276,9 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure stores the location results of a player
+		//
 		// ==========================================================================================================================
 
 
@@ -159,6 +300,10 @@ namespace mc
 		};
 
 
+		// ==========================================================================================================================
+		//
+		// structure stores the position results of a player
+		//
 		// ==========================================================================================================================
 
 
@@ -201,6 +346,10 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure stores the gesture results of a player
+		//
+		// ==========================================================================================================================
 
 
 		struct GestureResult
@@ -241,6 +390,9 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure bundles all player results
+		//
 		// ==========================================================================================================================
 
 
@@ -256,6 +408,9 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure bundles all zone results
+		//
 		// ==========================================================================================================================
 
 
@@ -279,85 +434,90 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// overall result structure that contains all estimated results
+		//
 		// ==========================================================================================================================
 
 
-		template<size_t player_count, size_t zone_count>
-		struct _ResultBundle
+		struct Result
 		{
-			PlayerResult playerResults[player_count];
-			ZoneResult zoneResults[zone_count];
+			std::array<PlayerResult, 2> player;
+			std::array<ZoneResult, 6> zone;
 
-			_ResultBundle() = default;
+			Result() = default;
 		};
 
 
-		using ResultBundle = _ResultBundle<mc::defines::maxPlayer, mc::defines::maxZones>;
-
-
-	} // end namespace result
-
-
-
-
-	// ==========================================================================================================================
-	//
-	// namespace "command" contains structures to for controlling the tracking system and its sending behaviour
-	//
-	// ==========================================================================================================================
-
-	
-
-	namespace command
-	{
-
-
-		// the stuff in here should be renamed?
-
+		// ==========================================================================================================================
+		//
+		// structure stores the retrieved player selection from control module
+		//
 		// ==========================================================================================================================
 
 
-		template<size_t player_count, size_t zone_count>
-		struct _CMCommandBundle
+		struct ControlPlayer
 		{
 
-			int32_t stateControl;
+			std::chrono::high_resolution_clock::time_point time;
+			
+			bool tracking;
+			int32_t blob;
 
 
-			bool setPlayerTracking[player_count];
-			bool setZoneTracking[zone_count];
-
-			int32_t setPlayerBlob[player_count];
-			cv::Rect setZoneBlob[zone_count];
-
-			_CMCommandBundle() : stateControl(0)
-			{
-				for (auto&& c = 0; c < mc::defines::maxPlayer; ++c)
-				{
-					setPlayerTracking[c] = false;
-					setPlayerBlob[c] = -1;
-				}
-
-				for (auto&& c = 0; c < mc::defines::maxZones; ++c)
-				{
-					setZoneTracking[c] = false;
-					setZoneBlob[c] = cv::Rect(-1, -1, 0, 0);
-				}
-			}
-
+			ControlPlayer() : tracking(false), blob(-1)
+			{}
 		};
 
 
-		using CMCommandBundle = _CMCommandBundle<mc::defines::maxPlayer, mc::defines::maxZones>;
+		// ==========================================================================================================================
+		//
+		// structure stores the retrieved zone selection from control module
+		//
+		// ==========================================================================================================================
+
+
+		struct ControlZone
+		{
+			bool tracking;
+			cv::Rect blob;
+
+			ControlZone() : tracking(false), blob(-1, -1, 0, 0)
+			{}
+		};
 
 
 		// ==========================================================================================================================
+		//
+		// overall control structure that contains everything retrieved from control module
+		//
 		// ==========================================================================================================================
 
 
-		// we have to prepend the activity
-		// peak is maybe moved to position
-		struct MECommandPlayer
+		struct ControlBundle
+		{
+
+			std::mutex mtx;
+			std::condition_variable cond;
+
+			int32_t state;
+
+			std::array<ControlPlayer, 2> player;
+			std::array<ControlZone, 6> zone;
+
+			ControlBundle() : state(0)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure stores the retrieved player message requests from music environment
+		//
+		// ==========================================================================================================================
+
+
+		struct MusicPlayer
 		{
 
 			bool sendDiscreteHandLeft; // 1
@@ -380,8 +540,6 @@ namespace mc
 			bool sendNormalBodyLeft; // 1
 			bool sendNormalBodyRight; // 1
 
-			bool sendPeak; // 1
-
 			bool sendFlowLeftwardsLeft; // 2
 			bool sendFlowLeftwardsRight; // 2
 			bool sendFlowRightwardsLeft; // 2
@@ -399,6 +557,7 @@ namespace mc
 
 			bool sendPositionHeight; // 1
 			bool sendPositionHeightLevel; // 1
+			bool sendPositionPeak; // 1
 			bool sendPositionVerticalHandLeft; // 1
 			bool sendPositionVerticalHandRight; // 1
 			bool sendPositionSideHandLeft; // 1
@@ -427,7 +586,7 @@ namespace mc
 			bool sendGestureJump; // 2
 			bool sendGestureClap; // 3
 
-			MECommandPlayer() : sendDiscreteHandLeft(false),
+			MusicPlayer() : sendDiscreteHandLeft(false),
 				sendDiscreteHandRight(false),
 				sendDiscreteHead(false),
 				sendDiscreteLegLeft(false),
@@ -445,7 +604,6 @@ namespace mc
 				sendNormalBodyLower(false),
 				sendNormalBodyLeft(false),
 				sendNormalBodyRight(false),
-				sendPeak(false),
 				sendFlowLeftwardsLeft(false),
 				sendFlowLeftwardsRight(false),
 				sendFlowRightwardsLeft(false),
@@ -461,6 +619,7 @@ namespace mc
 				sendLocationOutOfRange(false),
 				sendPositionHeight(false),
 				sendPositionHeightLevel(false),
+				sendPositionPeak(false),
 				sendPositionVerticalHandLeft(false),
 				sendPositionVerticalHandRight(false),
 				sendPositionSideHandLeft(false),
@@ -493,10 +652,13 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// structure stores the retrieved zone message requests from music environment
+		//
+		// ==========================================================================================================================
 
 
-
-		struct MECommandZone
+		struct MusicZone
 		{
 			bool sendDiscrete; // 1
 			bool sendNormal; // 1
@@ -505,7 +667,7 @@ namespace mc
 			bool sendFlowUpwards; // 2
 			bool sendFlowDownwards; // 2
 
-			MECommandZone() : sendDiscrete(false),
+			MusicZone() : sendDiscrete(false),
 				sendNormal(false),
 				sendFlowLeftwards(false),
 				sendFlowRightwards(false),
@@ -517,21 +679,19 @@ namespace mc
 
 
 		// ==========================================================================================================================
+		//
+		// overall control structure that contains everything retrieved from music environment
+		//
+		// ==========================================================================================================================
 
 
-		template<size_t player_count, size_t zone_count>
-		struct _MECommandBundle
+		struct MusicBundle
 		{
-			MECommandPlayer playerCommands[player_count];
-			MECommandZone zoneCommands[zone_count];
+			std::array<MusicPlayer, 2> player;
+			std::array<MusicZone, 6> zone;
 
-			_MECommandBundle() = default;
+			MusicBundle() = default;
 		};
 
-
-		using MECommandBundle = _MECommandBundle<mc::defines::maxPlayer, mc::defines::maxZones>;
-
-
-	} // end namespace command
-
-} // end namespace mc
+	}
+}

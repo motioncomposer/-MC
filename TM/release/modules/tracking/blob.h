@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core.h"
-#include "misc.h"
 
 #include "structures.h"
 
@@ -12,112 +11,27 @@
 #include <numeric>
 
 
+#define MC_AUXILIARY_FUNCTIONS
+
+
 namespace mc
 {
+
 	namespace blob
 	{
 
-		struct BlobMaster
+		// ==========================================================================================================================
+		//
+		// structure to store disparity thresholds
+		//
+		// ==========================================================================================================================
+
+
+		struct DisparityThresholds
 		{
-			int64_t size;
-			int64_t index;
-			short blobDisp;
-
-			cv::Rect searchRegion;
-			cv::Rect operatingRoi;
-		};
-
-
-		struct BlobFinderParameter
-		{
-			int floorLvl;
-			int sideOffset;
-			int erosionSizeX;
-			int erosionSizeY;
-
 			short minDisparity;
 			short maxDisparity;
-			short maxDispOffsetBack;
-			short maxDispOffsetFront;
-
-			int64_t minMasterSize;
-			int64_t minSlaveSize;
-
-			BlobFinderParameter() : floorLvl(0), sideOffset(30), erosionSizeX(7), erosionSizeY(7), minDisparity(0), maxDisparity(10000),
-				maxDispOffsetBack(72), maxDispOffsetFront(72), minMasterSize(10000), minSlaveSize(150) {}
 		};
-
-
-		class BlobFinder
-		{
-		public:
-
-			BlobFinder(const BlobFinderParameter& parameter = BlobFinderParameter()) : parameter(parameter) {}
-
-			bool apply(const cv::Mat& disp);
-
-			bool draw(cv::Mat& image, const cv::Scalar& color_one = cv::Scalar(0, 0, 255), const cv::Scalar& color_two = cv::Scalar(255, 0, 0));
-
-			const BlobFinderParameter& getParameter() const;
-
-			BlobFinderParameter& getParameter();
-
-			const cv::Mat& getMask() const;
-
-		private:
-
-			cv::Mat mask;
-
-			std::vector<std::vector<cv::Point>> contours;
-			std::vector<cv::Vec4i> hierarchy;
-			std::vector<cv::Rect> rois;
-
-			bool one_detected;
-			bool two_detected;
-
-			BlobFinderParameter parameter;
-			BlobMaster master[2];
-
-			short dmyDisp;
-			short dmyDistanceX[2];
-
-			bool candidate_for_blob[2];
-			cv::Scalar blob_color[2];
-
-		};
-	}
-}
-
-
-// this #define should be removed
-#define MC_AUXILIARY_FUNCTIONS
-#define MC_PUBLIC_INTERNALS
-
-#define MC_COMPILE_WITH_NEW_DRAFT
-#ifdef MC_COMPILE_WITH_NEW_DRAFT
-
-namespace mc_test
-{
-
-	/*
-	* the current plan:
-	*
-	* - we distict between some person tracking (where we use a special tracking sheme); for blobs, we make it more simple
-	* - tracking the main blob (a.k.a. body blob), and the resulting blob (which is the puzzled-togehter version)
-	* - improving the blob matching by removing the hand search region (which is bad designed because of wrong scaling)
-	* - we should chec the influence of a histogram equalization
-	* - if person is close to camera the main blob may is separatet into multiple main blobs that are abouve each other
-	* - they need to be merged
-	* - we have position result but we need also something like velocity result and acceleration result
-	* - centerX as mean value of the contour --> but this is not part of the mc::blob::BlobFinder
-	* - discrimination between blob tracking (blob stuff) and player tracking (special tracking scheme needed to obtain location and position results)
-	* - we need a special handtracker bundled to the person tracking; may be we can re-evaluate the hill climber approach from the ZED camera
-	* - we are measuring the height from the bottum so the center line should be nearly constant
-	*/
-
-
-	namespace blob
-	{
 
 
 		// ==========================================================================================================================
@@ -129,16 +43,14 @@ namespace mc_test
 
 		struct BlobFinderParameter
 		{
-			uchar blobPrintBase;
-			uchar trackerPrintBase;
 
 			int floorLvl;
 			int sideOffset;
 			int erosionSizeX;
 			int erosionSizeY;
 
-			short minDisparity;
-			short maxDisparity;
+			float minDistance;
+			float maxDistance;			
 
 			// this is maybe not needed anymore
 			// at least should be simplified
@@ -155,18 +67,16 @@ namespace mc_test
 			int maxNoMeasurement;
 			int maxTrackerCount;
 
-			// this should also be more flexible --> later
+			// this should also be more flexible
 			float varianceQ;
 			float varianceR;
 
-			BlobFinderParameter() : blobPrintBase(200),
-				trackerPrintBase(255),
-				floorLvl(0),
+			BlobFinderParameter() : floorLvl(0),
 				sideOffset(30),
 				erosionSizeX(7),
 				erosionSizeY(7),
-				minDisparity(0),
-				maxDisparity(10000),
+				minDistance(0.f),
+				maxDistance(10000.f),
 				maxDistanceOffsetBack(500.f),
 				maxDistanceOffsetFront(800.f),
 				minTrackSize(10000.f),
@@ -177,48 +87,23 @@ namespace mc_test
 				maxTrackerCount(32),
 				varianceQ(1.f),
 				varianceR(1e-1f) {}
+
+			void read(const cv::FileNode& fn);
+
+			void write(cv::FileStorage& fs) const;
+
 		};
 
 
-		// ==========================================================================================================================
-		//
-		// struct that holds the player-to-blob mapping
-		//
-		// ==========================================================================================================================
+		void read(const cv::FileNode& fn, BlobFinderParameter& blobFinderPara, const BlobFinderParameter& default = BlobFinderParameter());
 
-		// here we store the tracker id value ...
-		// -1 means not assigned (ore better every thing smaller than 0)
-		// we still need some managing of disapearing players
-		// don't know how this should be done
-		// we can rename this to MapResult ... or put this in some other header
-		// or we put this to controll? we need a function that fits a tapping to a blob
-		// this is somthink we have to work on ...
-		struct PlayerMapping
-		{
-			int playerOneID;
-			int playerTwoID;
+		void write(cv::FileStorage& fs, const std::string&, const BlobFinderParameter& blobFinderPara);
 
-			PlayerMapping() : playerOneID(-1), playerTwoID(-1) {}
+		bool saveBlobFinderParameter(const BlobFinderParameter& blobFinderPara,
+			const std::string& filename, const std::string& key);
 
-
-			// don't know how these functions are useful, but we definitly need somthing like this
-			bool noPlayerActive()
-			{
-				return (playerOneID < 0) && (playerTwoID < 0);
-			}
-
-
-			bool onePlayerActive()
-			{
-				return ((playerOneID < 0) && !(playerTwoID < 0)) || (!(playerOneID < 0) && (playerTwoID < 0));
-			}
-
-
-			bool twoPlayerActive()
-			{
-				return !((playerOneID < 0) || (playerTwoID < 0));
-			}
-		};
+		bool readBlobFinderParameter(BlobFinderParameter& blobFinderPara,
+			const std::string& filename, const std::string& key);
 
 
 		// ==========================================================================================================================
@@ -369,7 +254,7 @@ namespace mc_test
 
 			cv::Rect getCorrectedROI() const;
 
-			const std::vector<int>& getAssociatedBlobs() const;
+			const std::vector<uint32_t>& getAssociatedBlobs() const;
 
 			bool hasMeasurement() const;
 
@@ -384,12 +269,12 @@ namespace mc_test
 
 		private:
 
-			static int32_t instanceCounter;
+			static uint32_t instanceCounter;
 
 			bool init;
 			bool meas;
 
-			std::vector<int> associatedBlobs;
+			std::vector<uint32_t> associatedBlobs;
 
 			int blobTrackerID;
 			int noMeasurementCounter;
@@ -416,9 +301,18 @@ namespace mc_test
 
 			// public interface:
 
-			BlobFinder(const BlobFinderParameter& parameter = BlobFinderParameter()) : parameter(parameter) {}
+			BlobFinder(const BlobFinderParameter& parameter, const fs::core::BasicStereoValues& values) : parameter(parameter), values(values)
+			{
 
-			bool apply(const cv::Mat& disp, const fs::core::BasicStereoValues& values);
+				if (BlobFinder::parameter.minDistance > BlobFinder::parameter.maxDistance)
+					std::swap(BlobFinder::parameter.minDistance, BlobFinder::parameter.maxDistance);
+
+				thresholds.minDisparity = static_cast<short>(16 * BlobFinder::values.focalLength * BlobFinder::values.baseLineLength / BlobFinder::parameter.maxDistance);
+				thresholds.maxDisparity = 16 * BlobFinder::values.focalLength * BlobFinder::values.baseLineLength / BlobFinder::parameter.minDistance;
+
+			}
+
+			bool apply(const cv::Mat& disp);
 
 			bool draw(cv::Mat& image, const cv::Scalar& color_corrected = cv::Scalar(255, 255, 255), const cv::Scalar& color_measured = cv::Scalar::all(-1),
 				const cv::Scalar& color_predicted = cv::Scalar::all(-1)) const;
@@ -427,29 +321,39 @@ namespace mc_test
 
 			void showTrackerMask(cv::Mat& show) const;
 
+			void plotTrackerID(cv::Mat& show) const;
+
 			bool printBlobs(cv::Mat& show, const std::vector<cv::Scalar>& colors) const;
 
 			bool printTrackers(cv::Mat& show, const std::vector<cv::Scalar>& colors) const;
 
-			// here we need to provide the player information
-			//void showTrackerBlobs(cv::Mat& show) const;
 
 			const BlobFinderParameter& getParameter() const;
 
-			BlobFinderParameter& getParameter();
+			const DisparityThresholds& getThresholds() const;
 
 			size_t getBlobCount() const;
 
 			size_t getTrackerCount() const;
 
+			void adjustDistanceRange(float minDistance, float maxDistance);
 
-			// this would be more generic if we want to use more players
-			//void getPlayer(int id);
+			void adjustFloorLevel(int floorLvl);
 
-			// don't use this functions ...
-			//void getFirstPlayer();
 
-			//void getSecondPlayer();
+
+			////
+
+			bool draw(cv::Mat& image, const mc::structures::PlayerSelection& selection,
+				const cv::Scalar& color_one = { 0, 0, 255 }, const cv::Scalar& color_two = { 0, 255, 0 }, const cv::Scalar& color_inactive = { 156, 156, 156 }) const;
+
+			bool printPlayers(cv::Mat& show, const mc::structures::PlayerSelection& selection,
+				const cv::Scalar& color_one = { 0, 0, 255 }, const cv::Scalar& color_two = { 0, 255, 0 }, const cv::Scalar& color_inactive = { 156, 156, 156 }) const;
+
+			void updateSharedData(mc::structures::PlayerSelection& selection, mc::structures::SharedData& data) const;
+
+			////
+
 
 
 			// public auxiliary functions:
@@ -458,7 +362,6 @@ namespace mc_test
 
 			const cv::Mat& getMask() const;
 
-			// these are just here to get a reference to the basic blob stuff in order to test it ...
 			const std::vector<int>& getOrdering() const;
 
 			const std::vector<std::vector<cv::Point>>& getContours() const;
@@ -487,12 +390,9 @@ namespace mc_test
 			std::vector<BlobTracker> trackers;
 			std::vector<BlobTracker> shadow;
 
+			fs::core::BasicStereoValues values;
 			BlobFinderParameter parameter;
-
-
-#ifdef MC_PUBLIC_INTERNALS
-		public:
-#endif
+			DisparityThresholds thresholds;
 
 			// internal functions:
 
@@ -513,5 +413,3 @@ namespace mc_test
 
 	}
 }
-
-#endif // MC_COMPILE_WITH_NEW_DRAFT

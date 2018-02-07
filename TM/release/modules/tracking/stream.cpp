@@ -37,6 +37,80 @@ namespace mc
 
 		// ==========================================================================================================================
 		//
+		// video stream parameter
+		//
+		// ==========================================================================================================================
+
+
+		void VideoStreamParameter::read(const cv::FileNode& fn)
+		{
+			fn["port"] >> port;
+			fn["period"] >> period;
+			fn["width"] >> width;
+			fn["height"] >> height;			
+			fn["encoding"] >> encoding;
+		}
+
+
+		void VideoStreamParameter::write(cv::FileStorage& fs) const
+		{
+			fs << "{"
+				<< "port" << port
+				<< "period" << period
+				<< "width" << width
+				<< "height" << height
+				<< "encoding" << encoding
+				<< "}";
+		}
+
+
+		void read(const cv::FileNode& fn, VideoStreamParameter& streamPara, const VideoStreamParameter& default)
+		{
+			if (fn.empty())
+				streamPara = default;
+			else
+				streamPara.read(fn);
+		}
+
+
+		void write(cv::FileStorage& fs, const std::string&, const VideoStreamParameter& streamPara)
+		{
+			streamPara.write(fs);
+		}
+
+
+		bool saveVideoStreamParameter(const VideoStreamParameter& streamPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+
+			if (fs.isOpened())
+			{
+				fs << key << streamPara;
+				return true;
+			}
+
+			return false;
+		}
+
+
+		bool readVideoStreamParameter(VideoStreamParameter& streamPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::READ);
+
+			if (fs.isOpened())
+			{
+				fs[key] >> streamPara;
+				return true;
+			}
+
+			return false;
+		}
+
+
+		// ==========================================================================================================================
+		//
 		// video stream server
 		//
 		// ==========================================================================================================================
@@ -166,6 +240,82 @@ namespace mc
 					output.push_back(input[c]);
 
 			return true;
+		}
+
+
+		// ==========================================================================================================================
+		//
+		// image and contours stream parameter
+		//
+		// ==========================================================================================================================
+
+
+		void ImageAndContoursStreamParameter::read(const cv::FileNode& fn)
+		{
+			fn["port"] >> port;
+			fn["period"] >> period;
+			fn["width"] >> width;
+			fn["height"] >> height;
+			fn["reduce"] >> reduce;
+			fn["encoding"] >> encoding;
+		}
+
+
+		void ImageAndContoursStreamParameter::write(cv::FileStorage& fs) const
+		{
+			fs << "{"
+				<< "port" << port
+				<< "period" << period
+				<< "width" << width
+				<< "height" << height
+				<< "reduce" << reduce
+				<< "encoding" << encoding
+				<< "}";
+		}
+
+
+		void read(const cv::FileNode& fn, ImageAndContoursStreamParameter& streamPara, const ImageAndContoursStreamParameter& default)
+		{
+			if (fn.empty())
+				streamPara = default;
+			else
+				streamPara.read(fn);
+		}
+
+
+		void write(cv::FileStorage& fs, const std::string&, const ImageAndContoursStreamParameter& streamPara)
+		{
+			streamPara.write(fs);
+		}
+
+
+		bool saveImageAndContoursStreamParameter(const ImageAndContoursStreamParameter& streamPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+
+			if (fs.isOpened())
+			{
+				fs << key << streamPara;
+				return true;
+			}
+
+			return false;
+		}
+
+
+		bool readImageAndContoursStreamParameter(ImageAndContoursStreamParameter& streamPara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::READ);
+
+			if (fs.isOpened())
+			{
+				fs[key] >> streamPara;
+				return true;
+			}
+
+			return false;
 		}
 
 
