@@ -4,8 +4,13 @@ here's a very reduced version of Tonality3, which should be suitable for your fi
 
 For using it, you need the instrument samples we have for Piano and Vibraphone. In case you don't have them on the machine you're working on, you have to download them from Mega. Robert has access to it, or maybe you too, Tobias.
 You can find them in:
-"MC2 software/MC2,5/Tonality2/Samples/
-The folders you need, are called "OldBlackGrand" and "Vibraphone".
+"MC2 software/MC2,5/Tonality2/Samples/"
+or
+"/MCTools/ SW MODULES/MEs/Tonality/180302_Tonality_test/Samples/"
+The folders you need, are called "OldBlackGrand" and "Vibraphone"
+
+>>Ekmel's note: those files are 1.7 GB so why I did exclude them. Hithesh, if you do not have access to MEGA, the easiest way might be asking to Tobias. Or tell me I will create an access.../ best.
+
 Just download and copy them into the "Samples" folder, found in the main directory of the patch I just sent.
 
 After that, just start the main Pd file "ME_tester.pd". It was written in Pd 0.48, but should also work with whatever version you have.
