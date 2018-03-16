@@ -446,13 +446,13 @@ namespace mc
 		}
 
 
-		int BlobTracker::getBlobTrackerID() const
+		uint32_t BlobTracker::getBlobTrackerID() const
 		{
 			return blobTrackerID;
 		}
 
 
-		int BlobTracker::getNoMeasurementCounter() const
+		uint32_t BlobTracker::getNoMeasurementCounter() const
 		{
 			return noMeasurementCounter;
 		}
@@ -771,6 +771,25 @@ namespace mc
 			}
 
 		}
+
+
+		void BlobFinder::updateStreamData(const mc::structures::PlayerSelection& selection, mc::structures::StreamData& data) const
+		{
+			// selection is currently not needed ... as we are not yet putting the player ids into the stream ...
+
+			data.trackerIDs.clear();
+			data.associatedBlobs.clear();
+			data.trackerIDs.resize(trackers.size());
+			data.associatedBlobs.resize(trackers.size());
+
+			for (auto&& c = 0; c < trackers.size(); ++c)
+			{
+				data.trackerIDs[c] = trackers[c].getBlobTrackerID();
+				data.associatedBlobs[c] = trackers[c].getAssociatedBlobs();
+			}
+		}
+
+
 
 
 #ifdef MC_AUXILIARY_FUNCTIONS

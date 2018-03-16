@@ -16,6 +16,8 @@
 // this is need for append / read fundamental type --> may be we change this later
 #include "core.h"
 
+#include "structures.h"
+
 
 namespace mc
 {
@@ -201,6 +203,20 @@ namespace mc
 
 
 		template<size_t type_size>
+		void appendPoint(std::vector<uchar>& bytes, const cv::Point& input)
+		{
+			static_assert(type_size == 2 || type_size == 4 ||
+				type_size == 8, "not allowed type size specifier");
+
+			using T = std::conditional<type_size == 8, int64_t,
+				std::conditional<type_size == 4, int32_t, int16_t>::type>::type;
+
+			(void)fs::core::appendFundamentalType<T>(bytes, static_cast<T>(input.x));
+			(void)fs::core::appendFundamentalType<T>(bytes, static_cast<T>(input.y));
+		}
+
+
+		template<size_t type_size>
 		void appendPoints(std::vector<uchar>& bytes, const std::vector<cv::Point>& input)
 		{
 			static_assert(type_size == 2 || type_size == 4 ||
@@ -304,6 +320,7 @@ namespace mc
 
 			// we need a custom exeption
 			if (pos + (type_size * amount) > bytes.size()) throw std::out_of_range("invalid vector<T> subscript");
+			//if (pos + (type_size * amount) > bytes.size()) throw std::out_of_range("wubba lubba dub dub");
 
 			output.clear();
 			output.reserve(amount);
@@ -372,14 +389,14 @@ namespace mc
 			int port;
 
 			int period;
-			int width;
-			int height;
 			int reduce;
+
+			float scale;
 
 			std::string encoding;
 
-			ImageAndContoursStreamParameter(int port = 50000, int period = 100, int width = 480, int height = 360, int reduce = 5, int encoding = 0) : port(port), period(period),
-				width(width), height(height), reduce(reduce), encoding(getEncoding(static_cast<ImageEncodings>(encoding)))
+			ImageAndContoursStreamParameter(int port = 50000, int period = 100, int reduce = 5, float scale = 0.75f, int encoding = 0) : port(port), period(period),
+				reduce(reduce), scale(scale), encoding(getEncoding(static_cast<ImageEncodings>(encoding)))
 			{}
 
 			void read(const cv::FileNode& fn);
@@ -421,7 +438,7 @@ namespace mc
 
 			~ImageAndContoursStreamServer();
 
-			bool storeData(const cv::Mat& image, const std::vector<std::vector<cv::Point>>& contours);
+			bool storeData(const cv::Mat& image, const mc::structures::StreamData& stream, const std::vector<std::vector<cv::Point>>& contours);
 
 			const ImageAndContoursStreamParameter& getParameter() const;
 

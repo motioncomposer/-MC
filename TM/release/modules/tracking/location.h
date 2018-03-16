@@ -13,6 +13,7 @@ namespace mc
 
 	namespace location
 	{
+
 		// ==========================================================================================================================
 		//
 		// location estimator parameter
@@ -57,7 +58,29 @@ namespace mc
 
 		// ==========================================================================================================================
 		//
-		// position estimator object
+		// kernel object for location estimator
+		//
+		// ==========================================================================================================================
+
+
+		struct LocationEstimatorKernel
+		{
+			bool present;
+			bool ready;
+			bool outOfRange;
+
+			float lastCentroidX;
+			float lastCentroidZ;
+			std::chrono::high_resolution_clock::time_point lastMove;
+
+			LocationEstimatorKernel() : present(false), ready(false), outOfRange(false), lastCentroidX(0.f), lastCentroidZ(0.f)
+			{}
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// location estimator object
 		//
 		// ==========================================================================================================================
 
@@ -66,7 +89,7 @@ namespace mc
 		{
 		public:
 
-			LocationEstimator(const LocationEstimatorParameter& parameter) : parameter(parameter), trackerID{ -1, -1 }, lastCentroidX{ 0.f, 0.f }
+			LocationEstimator(const LocationEstimatorParameter& parameter) : parameter(parameter), trackerID{ -1, -1 }
 			{}
 
 			void apply(const cv::Size& imageSize, const mc::structures::PlayerActivation activation, const mc::structures::PlayerSelection& selection,
@@ -80,19 +103,16 @@ namespace mc
 			LocationEstimatorParameter parameter;
 			mc::structures::PlayerSelection trackerID;
 
-
-			std::array<bool, 2> present;
-			std::array<bool, 2> ready;
-			std::array<bool, 2> outOfRange;
-
-			std::array<float, 2> lastCentroidX;
-			std::array<std::chrono::high_resolution_clock::time_point, 2> lastMove;
-
+			std::array<LocationEstimatorKernel, 2> kernel;
 
 			void updatePlayerState(const mc::structures::PlayerSelection& selection, const mc::structures::SharedData& shared, uint32_t idx);
 
-			void calculateLocationResult(const cv::Size& imageSize, const mc::structures::PlayerSelection& selection, const mc::structures::SharedData& shared,
+			void calculateLocationResult(const cv::Size& imageSize, const mc::structures::SharedData& shared,
 				mc::structures::Result& result, uint32_t idx);
+
+			void writeSharedData(mc::structures::SharedData& shared, uint32_t idx);
+
+			void writeResult(mc::structures::Result& result, uint32_t idx);
 
 		};
 	}

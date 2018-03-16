@@ -81,7 +81,7 @@ namespace mc
 
 		// ==========================================================================================================================
 		//
-		// position estimator object
+		// location estimator object
 		//
 		// ==========================================================================================================================
 		
@@ -90,49 +90,50 @@ namespace mc
 			mc::structures::SharedData& shared, mc::structures::Result& result)
 		{
 
-			// check if players are swapped
-			if (selection[0] == trackerID[1] && selection[1] == trackerID[0])
+
+			if (selection[0] == trackerID[1] || selection[1] == trackerID[0])
 			{
 				std::swap(trackerID[0], trackerID[1]);
-				std::swap(lastCentroidX[0], lastCentroidX[1]);
-				std::swap(lastMove[0], lastMove[1]);
+				std::swap(kernel[0], kernel[1]);
 			}
 
 
-
-			if (selection[0] >= 0)
+			if (selection[0] >= 0 && trackerID[0] == selection[0])
 			{
 				updatePlayerState(selection, shared, 0);
 				if (activation[0])
-					calculateLocationResult(imageSize, selection, shared, result, 0);
+					calculateLocationResult(imageSize, shared, result, 0);
 				else
 					result.player[0].location = mc::structures::LocationResult();
 			}
 			else
+			{
+				kernel[0] = LocationEstimatorKernel();
 				result.player[0].location = mc::structures::LocationResult();
+			}
+
+			trackerID[0] = selection[0];
 
 
-			if (selection[1] >= 0)
+			if (selection[1] >= 0 && trackerID[1] == selection[1])
 			{
 				updatePlayerState(selection, shared, 1);
 				if (activation[1])
-					calculateLocationResult(imageSize, selection, shared, result, 1);
+					calculateLocationResult(imageSize, shared, result, 1);
 				else
 					result.player[1].location = mc::structures::LocationResult();
 			}
 			else
+			{
+				kernel[1] = LocationEstimatorKernel();
 				result.player[1].location = mc::structures::LocationResult();
+			}
+
+			trackerID[1] = selection[1];
 
 
-
-			shared.locationData[0].present = present[0];
-			shared.locationData[0].ready = ready[0];
-			shared.locationData[0].outOfRange = outOfRange[0];
-
-			shared.locationData[1].present = present[1];
-			shared.locationData[1].ready = ready[1];
-			shared.locationData[1].outOfRange = outOfRange[1];
-
+			writeSharedData(shared, 0);
+			writeSharedData(shared, 1);
 		}
 
 
@@ -141,9 +142,9 @@ namespace mc
 			if (show.empty() || show.type() != CV_8UC3)
 				return false;
 
-			if (present[0] && !outOfRange[0])
+			if (kernel[0].present && !kernel[0].outOfRange)
 			{
-				if (ready[0])
+				if (kernel[0].ready)
 					cv::putText(show, "P0: ready", { 25, 15 }, CV_FONT_HERSHEY_PLAIN, 1, color_ready);
 				else
 					cv::putText(show, "P0: present", { 25, 15 }, CV_FONT_HERSHEY_PLAIN, 1, color_present);
@@ -151,9 +152,9 @@ namespace mc
 			}			
 
 
-			if (present[1] && !outOfRange[1])
+			if (kernel[1].present && !kernel[1].outOfRange)
 			{
-				if (ready[1])
+				if (kernel[1].ready)
 					cv::putText(show, "P1: ready", { 25, 35 }, CV_FONT_HERSHEY_PLAIN, 1, color_ready);
 				else
 					cv::putText(show, "P1: present", { 25, 35 }, CV_FONT_HERSHEY_PLAIN, 1, color_present);
@@ -166,47 +167,67 @@ namespace mc
 		void LocationEstimator::updatePlayerState(const mc::structures::PlayerSelection& selection, const mc::structures::SharedData& shared, uint32_t idx)
 		{
 
-			if (std::abs(lastCentroidX[idx] - shared.trackerData[idx].metricCP[0]) > parameter.moveThreshold)
-				lastMove[idx] = std::chrono::high_resolution_clock::now();
+			if (std::abs(kernel[idx].lastCentroidX - shared.trackerData[idx].metricCP[0]) > parameter.moveThreshold/* || std::abs(lastCentroidZ[idx] - shared.trackerData[idx].metricCP[2]) > parameter.moveThreshold*/)
+				kernel[idx].lastMove = std::chrono::high_resolution_clock::now();
 
-			lastCentroidX[idx] = shared.trackerData[idx].metricCP[0];
+			kernel[idx].lastCentroidX = shared.trackerData[idx].metricCP[0];
+			kernel[idx].lastCentroidZ = shared.trackerData[idx].metricCP[2];
 
 
 			if (shared.trackerData[idx].distance < (shared.environment.minDistance + parameter.offsetFront) ||
 				shared.trackerData[idx].distance > (shared.environment.maxDistance - parameter.offsetBack))
-				outOfRange[idx] = true;
+				kernel[idx].outOfRange = true;
 			else
-				outOfRange[idx] = false;
+				kernel[idx].outOfRange = false;
 
-
-			if (selection[idx] != LocationEstimator::trackerID[idx])
+			/*
+			if (selection[idx] != trackerID[idx])
 			{
-				LocationEstimator::trackerID[idx] = selection[idx];
-				present[idx] = !shared.trackerData[idx].contourIdx.empty();
-				ready[idx] = false;
+				trackerID[idx] = selection[idx];
+				kernel[idx].present = !shared.trackerData[idx].contourIdx.empty();
+				kernel[idx].ready = false;
 			}
 			else
 			{
-				present[idx] = !shared.trackerData[idx].contourIdx.empty();
-				ready[idx] = present[idx] && ready[idx] ? true :
-					((std::chrono::high_resolution_clock::now() - lastMove[idx]) > std::chrono::duration<float, std::milli>(parameter.readyTimeMilli));
+				kernel[idx].present = !shared.trackerData[idx].contourIdx.empty();
+				kernel[idx].ready = kernel[idx].present && kernel[idx].ready ? true :
+					((std::chrono::high_resolution_clock::now() - kernel[idx].lastMove) > std::chrono::duration<float, std::milli>(parameter.readyTimeMilli));
 			}
+			*/
+
+			kernel[idx].present = !shared.trackerData[idx].contourIdx.empty();
+			kernel[idx].ready = kernel[idx].present && kernel[idx].ready ? true :
+				((std::chrono::high_resolution_clock::now() - kernel[idx].lastMove) > std::chrono::duration<float, std::milli>(parameter.readyTimeMilli));
 
 		}
 
 
-		void LocationEstimator::calculateLocationResult(const cv::Size& imageSize, const mc::structures::PlayerSelection& selection, const mc::structures::SharedData& shared,
+		void LocationEstimator::calculateLocationResult(const cv::Size& imageSize, const mc::structures::SharedData& shared,
 			mc::structures::Result& result, uint32_t idx)
 		{
-
+			// we can also kind of filter these ...
 			result.player[idx].location.centerX = shared.trackerData[idx].cp.x / imageSize.width;
 			result.player[idx].location.centerZ = (shared.trackerData[idx].distance - shared.environment.minDistance) / (shared.environment.maxDistance - shared.environment.minDistance);
 
-			result.player[idx].location.present = present[idx];
-			result.player[idx].location.ready = ready[idx];
-			result.player[idx].location.outOfRange = outOfRange[idx];
+			result.player[idx].location.present = kernel[idx].present;
+			result.player[idx].location.ready = kernel[idx].ready;
+			result.player[idx].location.outOfRange = kernel[idx].outOfRange;
 		}
 
+
+		void LocationEstimator::writeSharedData(mc::structures::SharedData& shared, uint32_t idx)
+		{
+			shared.locationData[idx].present = kernel[idx].present;
+			shared.locationData[idx].ready = kernel[idx].ready;
+			shared.locationData[idx].outOfRange = kernel[idx].outOfRange;
+		}
+
+
+		void LocationEstimator::writeResult(mc::structures::Result& result, uint32_t idx)
+		{
+			// is may be not used ...
+			// but we can think about something like this for mc::position::PositionEstimator, mc::activity::ActivityEstimator ...
+		}
 
 	}
 

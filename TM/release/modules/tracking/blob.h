@@ -258,9 +258,9 @@ namespace mc
 
 			bool hasMeasurement() const;
 
-			int getBlobTrackerID() const;
+			uint32_t getBlobTrackerID() const;
 			
-			int getNoMeasurementCounter() const;
+			uint32_t getNoMeasurementCounter() const;
 
 			void setVarianceQ(float varianceQ);
 
@@ -276,8 +276,8 @@ namespace mc
 
 			std::vector<uint32_t> associatedBlobs;
 
-			int blobTrackerID;
-			int noMeasurementCounter;
+			uint32_t blobTrackerID;
+			uint32_t noMeasurementCounter;
 
 			BlobResult predictedResult;
 			BlobResult measuredResult;
@@ -351,6 +351,8 @@ namespace mc
 				const cv::Scalar& color_one = { 0, 0, 255 }, const cv::Scalar& color_two = { 0, 255, 0 }, const cv::Scalar& color_inactive = { 156, 156, 156 }) const;
 
 			void updateSharedData(mc::structures::PlayerSelection& selection, mc::structures::SharedData& data) const;
+
+			void updateStreamData(const mc::structures::PlayerSelection& selection, mc::structures::StreamData& data) const;
 
 			////
 
