@@ -100,6 +100,7 @@ int main(int ac, char** av)
 				communicationCore.updateActivation(activation);
 				communicationCore.updateSelection(selection);
 
+				// here we may be can make the selection a constant ...
 				start = std::chrono::high_resolution_clock::now();
 				trackingCore.apply(activation, selection, result);
 				end = std::chrono::high_resolution_clock::now();
@@ -110,7 +111,7 @@ int main(int ac, char** av)
 				
 
 				// here we need a separate thread under the hood? --> sending queue
-				communicationCore.sendResult(result);
+				communicationCore.sendResult(selection, result);
 
 				time_needed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 				time_rest = time_sleep - time_needed;
@@ -140,22 +141,8 @@ int main(int ac, char** av)
 	}
 
 
-
-	// this can be removed ...
-	/*
-
-	// how do we manipulate this stuff?
-	// these values actually are defined by the command module ...
-	// floor level is something we may be can find automatically
-	blobFinder.getParameter().floorLvl = 370;
-	blobFinder.getParameter().minDisparity = 16 * values.focalLength * values.baseLineLength / 46;
-	blobFinder.getParameter().maxDisparity = 16 * values.focalLength * values.baseLineLength / 10;
-
-	// at the moment we can load them from file
-	*/
-
-
-	communicationCore.sendResult(mc::structures::Result());
+	// we may need a special sendAllZero;
+	//communicationCore.sendResult(mc::structures::Result());
 	communicationCore.notifyStopped();
 
 	return 0;
