@@ -8,5 +8,6 @@
   <item004>/set/player/#/reset</item004>
   <item005>/set/zone/#/blob</item005>
   <item006>/set/zone/#/tracking</item006>
-  <item007>/set/zone/#/reset</item007></CM2TM>
+  <item007>/set/player/swap</item007>
+  <item008>/set/tracking</item008></CM2TM>
 </opencv_storage>
