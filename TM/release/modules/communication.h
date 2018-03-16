@@ -110,12 +110,16 @@ namespace mc
 
 			void sendError(int error);
 
-			void sendResult(const mc::structures::Result& result);
+			void sendResult(const mc::structures::Selection& selection, const mc::structures::Result& result);
 
 
 			void updateActivation(mc::structures::Activation& activation);
 
 			void updateSelection(mc::structures::Selection& selection);
+
+			// here we may have a update parameter function ... at least environment ...
+
+			// and update sensitivity
 
 
 			bool keepRunning();

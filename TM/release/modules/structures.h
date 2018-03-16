@@ -28,7 +28,8 @@ namespace mc
 			PlayerActivation player;
 			ZoneActivation zone;
 
-			Activation() = default;
+			Activation() : player{ false, false }, zone{ false, false, false, false, false, false }
+			{}
 		};
 
 
@@ -52,7 +53,9 @@ namespace mc
 			
 			ZoneSelection zone;
 
-			Selection() = default;
+			Selection() : time{ std::chrono::high_resolution_clock::now(), std::chrono::high_resolution_clock::now() }, player{ -1, -1 },
+				zone{ cv::Rect(-1, -1, 0, 0), cv::Rect(-1, -1, 0, 0), cv::Rect(-1, -1, 0, 0), cv::Rect(-1, -1, 0, 0), cv::Rect(-1, -1, 0, 0), cv::Rect(-1, -1, 0, 0) }
+			{}
 		};
 
 
@@ -130,19 +133,34 @@ namespace mc
 		struct PositionData
 		{
 
+			// I believe I only have this data in here because we need to share this to the code of the main function ...
+			// oh wait, we can use it for the activity estimation in order to find the head area ...
 			float metricHeight;
 			float pixelHeight;
 
-			float topLvl;
+			uint32_t topLvl;
+
+			float metricShoulder;
+			float pixelShoulder;
+
+			uint32_t shoulderLvl;
 
 			float metricCenter;
 			float pixelCenter;
 
-			float midLvl;
+			uint32_t midLvl;
 
 			// here we have to add some data for the gesture detection
 
-			PositionData() : metricHeight(0.f), pixelHeight(0.f), topLvl(0.f), metricCenter(0.f), pixelCenter(0.f), midLvl(0.f)
+			PositionData() : metricHeight(0.f),
+				pixelHeight(0.f),
+				topLvl(0.f),
+				metricShoulder(0.f),
+				pixelShoulder(0.f),
+				shoulderLvl(0.f),
+				metricCenter(0.f),
+				pixelCenter(0.f),
+				midLvl(0.f)
 			{}
 		};
 
@@ -163,6 +181,23 @@ namespace mc
 			std::array<PositionData, 2> positionData;
 
 			SharedData() = default;
+		};
+
+
+		// ==========================================================================================================================
+		//
+		// structure bundles tracker and contour information for streaming purpose
+		//
+		// ==========================================================================================================================
+
+
+		// may be we can design this in some other way ...
+		struct StreamData
+		{
+			std::vector<uint32_t> trackerIDs;
+			std::vector<std::vector<uint32_t>> associatedBlobs;
+
+			StreamData() = default;
 		};
 
 
