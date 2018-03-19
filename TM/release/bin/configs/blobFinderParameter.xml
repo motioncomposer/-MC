@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <opencv_storage>
 <blobFinderParameter>
-  <floorLvl>0</floorLvl>
+  <floorLvl>370</floorLvl>
   <sideOffset>30</sideOffset>
   <erosionSizeX>7</erosionSizeX>
   <erosionSizeY>7</erosionSizeY>
-  <minDistance>0.</minDistance>
-  <maxDistance>10000.</maxDistance>
+  <minDistance>1000.</minDistance>
+  <maxDistance>4600.</maxDistance>
   <maxDistanceOffsetBack>500.</maxDistanceOffsetBack>
   <maxDistanceOffsetFront>800.</maxDistanceOffsetFront>
   <minTrackSize>10000.</minTrackSize>

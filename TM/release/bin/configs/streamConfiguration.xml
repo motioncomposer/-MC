@@ -5,6 +5,5 @@
   <period>100</period>
   <width>480</width>
   <height>360</height>
-  <reduce>5</reduce>
   <encoding>*.jpg</encoding></streamConfiguration>
 </opencv_storage>

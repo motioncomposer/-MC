@@ -5,6 +5,8 @@
 #endif
 
 #define PYLON_CAMERA_ACCESS
+#define SHOW_FRAMES
+#define MC_RECEIVING_VERBOSE
 
 #include <string>
 #include <vector>
@@ -196,7 +198,8 @@ namespace mc
 			"/player/#/reset",
 			"/zone/#/blob",
 			"/zone/#/tracking",
-			"/zone/#/reset"
+			"/player/swap",
+			"/tracking"
 		};
 
 

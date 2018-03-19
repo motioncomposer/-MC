@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<activityEstimatorParameter>
+  <minDifference>20.</minDifference>
+  <normalScaleHead>1.7000000476837158e+00</normalScaleHead>
+  <normalScaleLimbs>1.7000000476837158e+00</normalScaleLimbs>
+  <normalScaleBody>1.7000000476837158e+00</normalScaleBody>
+  <discreteThreshold>0.</discreteThreshold>
+  <discreteTimeoutMilli>250.</discreteTimeoutMilli></activityEstimatorParameter>
+</opencv_storage>

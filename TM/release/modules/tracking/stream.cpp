@@ -254,9 +254,8 @@ namespace mc
 		{
 			fn["port"] >> port;
 			fn["period"] >> period;
-			fn["width"] >> width;
-			fn["height"] >> height;
 			fn["reduce"] >> reduce;
+			fn["scale"] >> scale;
 			fn["encoding"] >> encoding;
 		}
 
@@ -266,9 +265,8 @@ namespace mc
 			fs << "{"
 				<< "port" << port
 				<< "period" << period
-				<< "width" << width
-				<< "height" << height
 				<< "reduce" << reduce
+				<< "scale" << scale
 				<< "encoding" << encoding
 				<< "}";
 		}
@@ -333,39 +331,61 @@ namespace mc
 		}
 
 
-		bool ImageAndContoursStreamServer::storeData(const cv::Mat& image, const std::vector<std::vector<cv::Point>>& contours)
+		bool ImageAndContoursStreamServer::storeData(const cv::Mat& image, const mc::structures::StreamData& stream, const std::vector<std::vector<cv::Point>>& contours)
 		{
 			if (image.empty() && image.channels() != 3)
 				return false;
 
-
-			// may be we need to specify the buffer capacity within the parameter ... but his is actually some think which is not part of the encoding ... ?
-			// otherwise ... the sending period is defined within the streaming parameter ...
-
 			shadow.clear();
+
+			// this can be done in the constructor ...
 			shadow.reserve(250000);
 
-			//
+			std::cout << "-- shadow size start: " << shadow.size() << std::endl;
 
-			// here comes our protocol
-			alignStream<4>(shadow);
-
-			cv::resize(image, dmyImage, { parameter.width, parameter.height });
+			cv::resize(image, dmyImage, cv::Size(), parameter.scale, parameter.scale);
 			cv::imencode(parameter.encoding, dmyImage, dmyImageBuffer);
 
-			appendEncodedImage<4, 4>(shadow, dmyImageBuffer);
+			std::cout << "-- dmyImageBuffer size: " << dmyImageBuffer.size() << std::endl;
+			std::cout << "-- shadow size: " << shadow.size() << std::endl;
 
-			alignStream<4>(shadow);
+			mc::stream::alignStream<4>(shadow);
+			mc::stream::appendEncodedImage<4, 4>(shadow, dmyImageBuffer);
 
-			appendSize<4>(shadow, contours.size());
+			std::cout << "-- shadow size appended image + align: " << shadow.size() << std::endl;
 
-			for (auto& it : contours)
+			// append tracker id player 0; (we spare this out at the moment)
+			// append tracker id player 1; (we spare this out at the moment)
+
+			mc::stream::appendSize<4>(shadow, stream.trackerIDs.size());
+
+			std::cout << "-- shadow size appended tracker count: " << shadow.size() << std::endl;
+
+			for (auto& it : stream.trackerIDs)
+				mc::stream::appendSize<4>(shadow, it);
+
+			std::cout << "-- shadow size appended tracker ids: " << shadow.size() << std::endl;
+
+			for (auto& tracker_it : stream.associatedBlobs)
 			{
-				reduceContour(it, dmyContour, parameter.reduce);
-				appendContour<4, 2, 4>(shadow, dmyContour);
+				mc::stream::appendSize<2>(shadow, tracker_it.size());
+
+				std::cout << "-- shadow size appended amount of contours: " << shadow.size() << std::endl;
+
+				for (auto& contour_it : tracker_it)
+				{
+					appendSize<4>(shadow, ((contours[contour_it].size() - 1) / parameter.reduce) + 1);
+					alignStream<4>(shadow);
+
+					for (auto&& c = 0; c < contours[contour_it].size(); c += parameter.reduce)
+						appendPoint<2>(shadow, parameter.scale * contours[contour_it][c]);
+					
+					alignStream<4>(shadow);
+				}
 			}
 
-			//
+
+			std::cout << "-- shadow size: " << shadow.size() << std::endl;
 
 			std::lock_guard<std::mutex> guard(mtx);
 			std::swap(buffer, shadow);

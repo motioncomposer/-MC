@@ -6,23 +6,105 @@ namespace mc
 	namespace gesture
 	{
 
-		// the FlowResult comes into a separate header file
-		void GestureDetection::apply(const mc::structures::FlowResult& flowResult, mc::structures::GestureResult& gestureResult)
+		// ==========================================================================================================================
+		//
+		// gesture estimator parameter
+		//
+		// ==========================================================================================================================
+
+
+		void GestureEstimatorParameter::read(const cv::FileNode& fn)
+		{
+			/*
+			fn["offsetFront"] >> offsetFront;
+			fn["offsetBack"] >> offsetBack;
+			fn["moveThreshold"] >> moveThreshold;
+			fn["readyTimeMilli"] >> readyTimeMilli;
+			*/
+		}
+
+
+		void GestureEstimatorParameter::write(cv::FileStorage& fs) const
+		{
+			/*
+			fs << "{"
+			<< "offsetFront" << offsetFront
+			<< "offsetBack" << offsetBack
+			<< "moveThreshold" << moveThreshold
+			<< "readyTimeMilli" << readyTimeMilli
+			<< "}";
+			*/
+		}
+
+
+		void read(const cv::FileNode& fn, GestureEstimatorParameter& gesturePara, const GestureEstimatorParameter& default)
+		{
+			if (fn.empty())
+				gesturePara = default;
+			else
+				gesturePara.read(fn);
+		}
+
+
+		void write(cv::FileStorage& fs, const std::string&, const GestureEstimatorParameter& gesturePara)
+		{
+			gesturePara.write(fs);
+		}
+
+
+		bool saveGestureEstimatorParameter(const GestureEstimatorParameter& gesturePara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+
+			if (fs.isOpened())
+			{
+				fs << key << gesturePara;
+				return true;
+			}
+
+			return false;
+		}
+
+
+		bool readGestureEstimatorParameter(GestureEstimatorParameter& gesturePara,
+			const std::string& filename, const std::string& key)
+		{
+			cv::FileStorage fs(filename, cv::FileStorage::READ);
+
+			if (fs.isOpened())
+			{
+				fs[key] >> gesturePara;
+				return true;
+			}
+
+			return false;
+		}
+
+
+		// ==========================================================================================================================
+		//
+		// gesture estimator object
+		//
+		// ==========================================================================================================================
+
+		
+		void GestureEstimator::apply(const mc::structures::FlowResult& flowResult, mc::structures::GestureResult& gestureResult)
 		{
 			gestureResult.hitDownLeft = isHitDownLeft(flowResult);
 			gestureResult.hitDownRight = isHitDownRight(flowResult);
 		}
 
 		// this will become internal functions afterwards
-		bool GestureDetection::isHitDownLeft(const mc::structures::FlowResult &flowResult)
+		bool GestureEstimator::isHitDownLeft(const mc::structures::FlowResult &flowResult)
 		{
 
 			if (isReadyLeft)
 			{
-				if (flowResult.downwardsLeft > minFlow)
+				if (flowResult.downwardsLeft > parameter.minFlow)
 					++curDownLeft;
 
-				if (curDownLeft > minDown)
+				if (curDownLeft > parameter.minDown)
 				{
 					isReadyLeft = false;
 					curDownLeft = 0;
@@ -31,10 +113,10 @@ namespace mc
 			}
 			else
 			{
-				if (flowResult.upwardsLeft > minFlow)
+				if (flowResult.upwardsLeft > parameter.minFlow)
 					++curUpLeft;
 
-				if (curUpLeft > minUp)
+				if (curUpLeft > parameter.minUp)
 				{
 					isReadyLeft = true;
 					curUpLeft = 0;
@@ -44,15 +126,15 @@ namespace mc
 			return false;
 		}
 
-		bool GestureDetection::isHitDownRight(const mc::structures::FlowResult &flowResult)
+		bool GestureEstimator::isHitDownRight(const mc::structures::FlowResult &flowResult)
 		{
 
 			if (isReadyRight)
 			{
-				if (flowResult.downwardsRight > minFlow)
+				if (flowResult.downwardsRight > parameter.minFlow)
 					++curDownRight;
 
-				if (curDownRight > minDown)
+				if (curDownRight > parameter.minDown)
 				{
 					isReadyRight = false;
 					curDownRight = 0;
@@ -61,10 +143,10 @@ namespace mc
 			}
 			else
 			{
-				if (flowResult.upwardsRight > minFlow)
+				if (flowResult.upwardsRight > parameter.minFlow)
 					++curUpRight;
 
-				if (curUpRight > minUp)
+				if (curUpRight > parameter.minUp)
 				{
 					isReadyRight = true;
 					curUpRight = 0;
@@ -74,49 +156,34 @@ namespace mc
 			return false;
 		}
 
-		bool GestureDetection::isHitSideLeft()
+		bool GestureEstimator::isHitSideLeft()
 		{
 
 		}
 
-		bool GestureDetection::isHitSideRight()
+		bool GestureEstimator::isHitSideRight()
 		{
 
 		}
 
-		bool GestureDetection::isHitFrontLeft()
+		bool GestureEstimator::isHitFrontLeft()
 		{
 
 		}
 
-		bool GestureDetection::isHitFrontRight()
+		bool GestureEstimator::isHitFrontRight()
 		{
 
 		}
 
-		bool GestureDetection::isKickLeft()
+		bool GestureEstimator::isKickLeft()
 		{
 
 		}
 
-		bool GestureDetection::isKickRight()
+		bool GestureEstimator::isKickRight()
 		{
 
-		}
-
-		void GestureDetection::setMinDown(ushort minDown)
-		{
-			GestureDetection::minDown = minDown;
-		}
-
-		void GestureDetection::setMinUp(ushort minUp)
-		{
-			GestureDetection::minUp = minUp;
-		}
-
-		void GestureDetection::setMinFlow(float minFlow)
-		{
-			GestureDetection::minFlow = minFlow;
 		}
 
 	}

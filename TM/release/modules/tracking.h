@@ -162,7 +162,7 @@ namespace mc
 
 			TrackingCoreError getStateCode() const;
 
-			void apply(const mc::structures::Activation activation, mc::structures::Selection& selection, mc::structures::Result& result);
+			void apply(mc::structures::Activation activation, mc::structures::Selection& selection, mc::structures::Result& result);
 
 
 		private:
@@ -171,10 +171,9 @@ namespace mc
 
 			cv::Mat rawFrameLeft, rawFrameRight;
 			cv::Mat rawFrameLeftResized, rawFrameRightResized;
-			cv::Mat rectifiedGreyLeft;
-			cv::Mat disparityMap;
 
 			mc::structures::SharedData shared;
+			mc::structures::StreamData stream;
 			
 
 #ifdef PYLON_CAMERA_ACCESS
@@ -189,13 +188,15 @@ namespace mc
 			std::shared_ptr<mc::blob::BlobFinder> blobFinder;
 			std::shared_ptr<mc::location::LocationEstimator> locationEstimator;
 			std::shared_ptr<mc::position::PositionEstimator> positionEstimator;
+			std::shared_ptr<mc::activity::ActivityEstimator> activityEstimator;
 			
 			/*
-			std::shared_ptr<mc::activity::ActivityEstimator> activityEstimator;
-			std::shared_ptr<mc::gesture::GestureDetector> getureDetector;			
+			std::shared_ptr<mc::gesture::GestureEstimtor> getureEstimator;
+			std::shared_ptr<mc::zones::ZonesEstimator> zonesEstimator;
 			*/
 
-			std::shared_ptr<mc::stream::ImageAndContoursStreamServer> streamServer;
+			std::shared_ptr<mc::stream::VideoStreamServer> streamServer;
+			//std::shared_ptr<mc::stream::ImageAndContoursStreamServer> streamServer;
 
 		};
 

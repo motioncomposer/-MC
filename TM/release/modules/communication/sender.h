@@ -87,7 +87,7 @@ namespace mc
 				findPlaceHolderPosition(list.pattern, position, mc::defines::placeholder);
 			}
 
-			void send(const mc::structures::MusicBundle& command, const mc::structures::Result& result);
+			void send(const mc::structures::MusicBundle& command, const mc::structures::Selection& selection, const mc::structures::Result& result);
 
 		private:
 
@@ -109,20 +109,19 @@ namespace mc
 			bool sendOnDifferentFromZero(float cur, float old);
 
 
+			void sendPlayerResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
 
-			void sendPlayerResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
-
-			void sendZoneResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
-
+			void sendZoneResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
 
 
-			void sendPlayerActivityResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
 
-			void sendPlayerLocationResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
+			void sendPlayerActivityResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
 
-			void sendPlayerPositionResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
+			void sendPlayerLocationResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
 
-			void sendPlayerGestureResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id);
+			void sendPlayerPositionResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
+
+			void sendPlayerGestureResult(const mc::structures::MusicBundle& command, const mc::structures::Result& cur, const mc::structures::Result& old, size_t id, char cs);
 
 		};
 	}

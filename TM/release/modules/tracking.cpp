@@ -157,7 +157,7 @@ namespace mc
 #else
 
 			capLeft.reset(new cv::VideoCapture());
-			capLeft.reset(new cv::VideoCapture());
+			capRight.reset(new cv::VideoCapture());
 
 			if (!ok || !capLeft->open(mc::defines::filenameLeftVideo) || !capRight->open(mc::defines::filenameRightVideo))
 			{
@@ -228,16 +228,27 @@ namespace mc
 				positionEstimator.reset(new mc::position::PositionEstimator(positionPara, values));
 
 
+			mc::activity::ActivityEstimatorParameter activityPara;
+			if (!ok || !mc::activity::readActivityEstimatorParameter(activityPara, mc::defines::filenameActivityEstimatorParameter, mc::defines::keyActivityEstimatorParameter))
+			{
+				state = ok ? TrackingCoreError::TC_READING_ACTIVITY_PARAMTER_FAIL : state;
+				ok = false;
+			}
+			else
+				activityEstimator.reset(new mc::activity::ActivityEstimator(activityPara));
+
+
+
 			/*
 			* so at this position we have to read in the parameter for all the other modules:
 			*
-			* - ActivityEstimator
 			* - GestureDetector
 			* - ZoneEstimator
 			*
 			*/
 
 
+			/*
 			mc::stream::ImageAndContoursStreamParameter streamPara;
 			if (!ok || !mc::stream::readImageAndContoursStreamParameter(streamPara, access.filenameStreamConfiguration, access.keyStreamConfiguration))
 			{
@@ -246,6 +257,19 @@ namespace mc
 			}
 			else
 				streamServer.reset(new mc::stream::ImageAndContoursStreamServer(streamPara));
+				*/
+
+
+			mc::stream::VideoStreamParameter streamPara;
+			if (!ok || !mc::stream::readVideoStreamParameter(streamPara, access.filenameStreamConfiguration, access.keyStreamConfiguration))
+			{
+				state = ok ? TrackingCoreError::TC_READING_STREAMING_PARAMETER_FAIL : state;
+				ok = false;
+			}
+			else
+				streamServer.reset(new mc::stream::VideoStreamServer(streamPara));
+
+
 
 			//
 			// if no error, set state to loaded
@@ -267,7 +291,7 @@ namespace mc
 		}
 
 
-		void TrackingCore::apply(const mc::structures::Activation activation, mc::structures::Selection& selection, mc::structures::Result& result)
+		void TrackingCore::apply(mc::structures::Activation activation, mc::structures::Selection& selection, mc::structures::Result& result)
 		{
 
 #ifdef PYLON_CAMERA_ACCESS
@@ -300,29 +324,54 @@ namespace mc
 
 			stereoCam->putRawViews(rawFrameLeftResized, rawFrameRightResized, true);
 
-			// this is actually not needed ...
-			stereoCam->getRectifiedLeftGrey().copyTo(rectifiedGreyLeft);
-			stereoCam->getDisparityImage().copyTo(disparityMap);
-
 			// find the blobs
-			blobFinder->apply(disparityMap);
+			blobFinder->apply(stereoCam->getDisparityImage());
+
+			///////
+
+			// auto selection ... can may be build this into the mc::blob::BlobFinder
+			if (selection.player[0] == -1)
+			{
+				auto biggest = blobFinder->getOrdering()[0];
+
+				for (auto& it : blobFinder->getTrackers())
+				{
+					for (auto& it2 : it.getAssociatedBlobs())
+					{
+						if (it2 == biggest)
+						{
+							selection.player[0] = it.getBlobTrackerID();
+							activation.player[0] = true;
+						}
+					}
+				}
+			}
+
+			////////
+
 
 			blobFinder->updateSharedData(selection.player, shared);
+			blobFinder->updateStreamData(selection.player, stream);
 
 			locationEstimator->apply({mc::defines::operatingWidth, mc::defines::operatingHeight}, activation.player, selection.player, shared, result);
-			positionEstimator->apply(disparityMap, activation.player, selection.player, blobFinder->getContours(), shared, result);
+			positionEstimator->apply(stereoCam->getDisparityImage(), activation.player, selection.player, blobFinder->getContours(), shared, result);
+			activityEstimator->apply(stereoCam->getRectifiedLeftGrey(), blobFinder->getMask(), activation.player, selection.player, shared, result);
+
+			// gesture estimation
+
+			// and of course the zones ... we can put this to activity ...
 
 
-			// activity estimation
+#ifdef SHOW_FRAMES
 
-			// gesture detection
+			cv::imshow("Frame", stereoCam->getRectifiedLeftGrey());
+			cv::waitKey(1);
+#endif
 
-			// and of course the zones ...
 
-
-			// here we have to put something more ...
-			//sender->storeMat(rectifiedGreyLeft);
-
+			// actually we have here a special error state that we can set ...
+			streamServer->storeMat(stereoCam->getRectifiedLeftGrey());
+			//streamServer->storeData(stereoCam->getRectifiedLeftGrey(), stream, blobFinder->getContours());
 
 		}
 

@@ -57,6 +57,7 @@ namespace mc
 			return pattern[smallest].length();
 		}
 
+
 		size_t checkSample(const std::string& sample, const std::string& pattern, int32_t prelude, char delimiter, char placeholder)
 		{
 
@@ -225,6 +226,8 @@ namespace mc
 			// here we need something ... as discussed with robert ...
 			// we need a special structure PlayerReset = std::array<...>;
 			// same procedure like for activation ...
+
+			// don't know if this is needed ...
 		}
 
 
@@ -285,15 +288,57 @@ namespace mc
 #endif
 		}
 
-		
-		void handleZoneResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone)
+
+		void handlePlayerSwapRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player)
 		{
-			// actually we do not need a zone reset as at the moment there are no values learned by the system
-			// for each zone ...
-			// thats why i think we can remove this ...
+			if (player == 10)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+
+				if (ref->player[0].blob >= 0 && ref->player[1].blob >= 0)
+				{
+					ref->player[0].time = std::chrono::high_resolution_clock::now();
+					ref->player[1].time = ref->player[0].time;
+
+					ref->player[0].blob = std::numeric_limits<int32_t>::max();
+					ref->player[1].blob = std::numeric_limits<int32_t>::max();
+				}
+			}
+
+#ifdef MC_RECEIVING_VERBOSE
+			std::cout << "-- received player tracking command" << std::endl;
+			std::cout << "-- player swapped" << std::endl;
+#endif
 		}
 
 
+		void handleTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t idx)
+		{
+			int32_t dmy;
+			args >> dmy >> osc::EndMessage;
+
+
+			if (idx == 10)
+			{
+				std::lock_guard<std::mutex> guard(ref->mtx);
+
+				ref->player[0].tracking = (dmy != 0);
+				ref->player[1].tracking = (dmy != 0);
+				ref->zone[0].tracking = (dmy != 0);
+				ref->zone[1].tracking = (dmy != 0);
+				ref->zone[2].tracking = (dmy != 0);
+				ref->zone[3].tracking = (dmy != 0);
+				ref->zone[4].tracking = (dmy != 0);
+				ref->zone[5].tracking = (dmy != 0);
+			}
+
+#ifdef MC_RECEIVING_VERBOSE
+			std::cout << "-- received player tracking command" << std::endl;
+			std::cout << "-- tracking switched to " << (dmy != 0 ? "on" : "off") << std::endl;
+#endif
+		}
+
+		
 		// ==========================================================================================================================
 		//
 		// listener object that maps the received osc messages to CM handler functions

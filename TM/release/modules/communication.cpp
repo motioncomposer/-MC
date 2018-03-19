@@ -167,9 +167,9 @@ namespace mc
 		}
 
 
-		void CommunicationCore::sendResult(const mc::structures::Result& result)
+		void CommunicationCore::sendResult(const mc::structures::Selection& selection, const mc::structures::Result& result)
 		{
-			senderToME->send(musicBundle, result);
+			senderToME->send(musicBundle, selection, result);
 		}
 
 
@@ -189,10 +189,11 @@ namespace mc
 		{
 			std::lock_guard<std::mutex> guard(controlBundle.mtx);
 
-			if (controlBundle.player[0].time == controlBundle.player[1].time)
+			if (controlBundle.player[0].blob == std::numeric_limits<int32_t>::max() && controlBundle.player[1].blob == std::numeric_limits<int32_t>::max())
 			{
 				selection.time[0] = std::chrono::high_resolution_clock::now();
 				selection.time[1] = selection.time[0];
+
 				std::swap(selection.player[0], selection.player[1]);
 			}
 
@@ -208,6 +209,13 @@ namespace mc
 			{
 				selection.time[1] = std::chrono::high_resolution_clock::now();
 				selection.player[1] = controlBundle.player[1].blob;
+			}
+
+
+			if (selection.player[0] < 0 && selection.player[1] >= 0)
+			{
+				std::swap(selection.time[0], selection.time[1]);
+				std::swap(selection.player[0], selection.player[1]);
 			}
 
 

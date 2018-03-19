@@ -17,9 +17,6 @@
 #include "ip/UdpSocket.h"
 
 
-#define MC_RECEIVING_VERBOSE
-
-
 namespace mc
 {
 	namespace receiver
@@ -65,7 +62,13 @@ namespace mc
 		void handleZoneTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
 
 
-		void handleZoneResetRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t zone);
+		void handlePlayerSwapRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t player);
+
+
+		void handleTrackingRequest(mc::structures::ControlBundle* ref, osc::ReceivedMessageArgumentStream args, size_t idx);
+
+
+		// here is still the sensitivity and the environment missing
 
 
 		// ==========================================================================================================================
@@ -91,12 +94,13 @@ namespace mc
 
 				handlers.push_back(std::bind(handleInitRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 				handlers.push_back(std::bind(handleStopRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				handlers.push_back(std::bind(handlePlayerTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 				handlers.push_back(std::bind(handlePlayerBlobRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				handlers.push_back(std::bind(handleZoneTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				handlers.push_back(std::bind(handleZoneBlobRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handlePlayerTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 				handlers.push_back(std::bind(handlePlayerResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
-				handlers.push_back(std::bind(handleZoneResetRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handleZoneBlobRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handleZoneTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handlePlayerSwapRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
+				handlers.push_back(std::bind(handleTrackingRequest, controllerRef, std::placeholders::_1, std::placeholders::_2));
 
 			}
 
