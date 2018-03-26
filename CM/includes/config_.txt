@@ -1,13 +1,15 @@
 CLIENT_SERVER_LIST
-# how to set server/client ports
+#how to set server/client ports
 # module IDs TM:61, CM:65, ME(s):60
 # server ports: senderID + receiverID
 #
 {'type':'client', 'name':'CMtoTM', 'ip':'127.0.0.1', 'port':'6561'}
 {'type':'client', 'name':'CMtoME', 'ip':'127.0.0.1', 'port':'6560'}
+{'type':'client', 'name':'CMtoGUI', 'ip':'127.0.0.1', 'port':'6562'}
 #{'type':'client', 'name':'MEtoTM', 'ip':'127.0.0.1', 'port':'6061'}
 #{'type':'client', 'name':'TMtoCM', 'ip':'127.0.0.1', 'port':'6165'}
 #{'type':'client', 'name':'MEtoCM', 'ip':'127.0.0.1', 'port':'6065'}
 #{'type':'client', 'name':'TMtoME', 'ip':'127.0.0.1', 'port':'6160'}
 {'type':'server', 'name':'CMserverME', 'ip':'127.0.0.1', 'port':'6065'}
 {'type':'server', 'name':'CMserverTM', 'ip':'127.0.0.1', 'port':'6165'}
+{'type':'server', 'name':'CMserverGUI', 'ip':'127.0.0.1', 'port':'6265'}
