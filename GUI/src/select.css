@@ -1,0 +1,45 @@
+.root{
+    -fx-font-size: 14pt;
+    -fx-font-family: "Tahoma";
+    /*-fx-background-image:url("/images/logo1.gif");
+    -fx-background-size:100%;*/
+}
+ 
+.button{
+    -fx-background-color: darkslateblue;
+    -fx-text-fill: white;
+}
+.button#Op1
+{
+	-fx-background-color: red;
+    -fx-text-fill: white;
+}
+.radio
+{
+	-fx-background-color: lightblue;
+    -fx-text-fill: white;
+}
+
+ 
+/* .btn2{
+    -fx-text-fill: #c10000;
+    -fx-background-color: #DFB951;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+    -fx-padding: 5;
+}
+ 
+ 
+.btn3{
+    -fx-text-fill: #c10000;
+    -fx-background-color: pink;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+    -fx-padding: 5;
+}
+ 
+.slider{
+    -fx-border-color: white;
+    -fx-border-style: dashed;
+    -fx-border-width: 2;
+}*/
