@@ -4,6 +4,11 @@ README PARTICLES ver. 0.01 for MC3.0
 - Unzip any zipped folders
 - Start the script with the following command in cmd or from a batch script:
 	csound -odac[# of audio driver, see compiler output] --omacro:Path=E:\\Path_to_patch_here\\ -B512 -b256  "E:/Path_to_patch_here/Particles_main.csd"
+	
+	!!!! du to the file size limitation I could not upload the Sets.zip 
+	please also find and download this file on MEGA-
+	this is also a good sign that we better to move our own Server# Hithes?
+	best- EE.
 
 
 
